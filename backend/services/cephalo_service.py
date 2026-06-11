@@ -134,7 +134,7 @@ class CephaloService:
         impa = results.metrics.analyse_dentaire.IMPA.valeur
         
         # Règle COM : 2.5° d'inclinaison = 1mm de place gagnée/perdue
-        ddm_cephalo = (impa - 90) / 2.5 if impa else 0
+        ddm_cephalo = (impa - 90) / 2.5 if impa is not None else 0
         
         # On travaille sur une copie du modèle pour éviter les mutations imprévues
         data = cd.model_copy(deep=True)

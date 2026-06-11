@@ -26,12 +26,25 @@ class BackupService:
 
     @staticmethod
     def _encrypt_and_save(source_db: Path, target_enc: Path, cipher_suite: Fernet):
-        # 1. Copie du fichier
         temp_db = target_enc.with_suffix('.temp.db')
         try:
-            shutil.copy2(source_db, temp_db)
-            
-            # 2. Chiffrement
+            # sqlite3 native backup API is WAL-safe; fallback to shutil for non-DB files
+            if source_db.suffix == '.db':
+                import sqlite3 as _sqlite3
+                src_conn = None
+                dst_conn = None
+                try:
+                    src_conn = _sqlite3.connect(str(source_db))
+                    dst_conn = _sqlite3.connect(str(temp_db))
+                    src_conn.backup(dst_conn)
+                finally:
+                    if dst_conn:
+                        dst_conn.close()
+                    if src_conn:
+                        src_conn.close()
+            else:
+                shutil.copy2(source_db, temp_db)
+
             data = temp_db.read_bytes()
             encrypted_data = cipher_suite.encrypt(data)
             target_enc.write_bytes(encrypted_data)

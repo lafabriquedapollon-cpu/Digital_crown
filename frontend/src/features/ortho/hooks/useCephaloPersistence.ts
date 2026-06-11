@@ -215,7 +215,7 @@ export const useCephaloPersistence = (
 
   const allLandmarksPlaced = tracingPct === 1;
 
-  const generateDocumentData = async (preview: boolean) => {
+  const generateDocumentData = useCallback(async (preview: boolean) => {
     const max = ddm.maxillaire === '' ? null : Number(ddm.maxillaire);
     const mand = ddm.mandibulaire === '' ? null : Number(ddm.mandibulaire);
     const real = (max !== null && mand !== null) ? (max + mand) : null;
@@ -238,12 +238,12 @@ export const useCephaloPersistence = (
       },
       archive: !preview,
     });
-  };
+  }, [patientId, ddm, diag, etape3Data]);
 
   const handlePreview = useCallback(async () => {
     if (!analysisId || !allLandmarksPlaced) return;
     setIsPreviewLoading(true);
-    setPreviewPdfUrl(null); 
+    setPreviewPdfUrl(null);
     await silentSave();
     try {
       const data = await generateDocumentData(true);
@@ -254,8 +254,7 @@ export const useCephaloPersistence = (
       console.error('[Preview] Erreur génération Aperçu', e);
       setIsPreviewLoading(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [analysisId, allLandmarksPlaced, silentSave, patientId, diag, ddm, etape3Data]);
+  }, [analysisId, allLandmarksPlaced, silentSave, generateDocumentData]);
 
   const handlePrint = useCallback(async () => {
     if (!analysisId || !allLandmarksPlaced) return;
@@ -265,13 +264,13 @@ export const useCephaloPersistence = (
       const data = await generateDocumentData(false);
       const blob = new Blob([data], { type: 'application/pdf' });
       const url = URL.createObjectURL(blob);
-      
+
       const userChoice = window.confirm(
         'Le PDF a été généré avec succès.\n\n' +
         '• OK = Ouvrir dans un nouvel onglet (pour imprimer)\n' +
         '• Annuler = Télécharger le fichier'
       );
-      
+
       if (userChoice) {
         window.open(url, '_blank');
       } else {
@@ -287,8 +286,7 @@ export const useCephaloPersistence = (
     } finally {
       setIsPrinting(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [analysisId, allLandmarksPlaced, patientId, patientName, diag, ddm, etape3Data, silentSave]);
+  }, [analysisId, allLandmarksPlaced, patientName, silentSave, generateDocumentData]);
 
   return {
     analysisId, imageSrc, anglesData, visionMetadata,

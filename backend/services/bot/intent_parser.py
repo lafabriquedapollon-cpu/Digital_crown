@@ -117,7 +117,7 @@ DENTAL_PROCEDURES = {
 class IntentParser:
     """Parseur d'intentions 100% déterministe pour Crown Bot."""
 
-    def parse(self, message: str) -> ParsedIntent:
+    def parse(self, message: str, context: list | None = None) -> ParsedIntent:
         """Analyse un message et retourne l'intent le plus probable."""
         if not message or not message.strip():
             return ParsedIntent(
@@ -126,7 +126,7 @@ class IntentParser:
             )
 
         normalized = self._normalize(message)
-        intent, confidence = self._match_intent(normalized)
+        intent, confidence = self._match_intent(normalized, prior_context=context or [])
         entities = self._extract_entities(normalized, intent)
 
         # Vérifier si des entités critiques manquent
@@ -149,7 +149,7 @@ class IntentParser:
         text = re.sub(r"\s+", " ", text)
         return text
 
-    def _match_intent(self, text: str) -> Tuple[str, float]:
+    def _match_intent(self, text: str, prior_context: list | None = None) -> Tuple[str, float]:
         """Identifie l'intent avec scoring multi-critères."""
         scores: Dict[str, float] = {}
 
@@ -188,10 +188,35 @@ class IntentParser:
                     return "QUERY_PATIENT", 0.70
             if PATIENT_NAME_PATTERN.search(text):
                 return "SEARCH_PATIENT", 0.65
+
+            # Contexte : si le dernier bot message était un write_pending,
+            # le message courant est probablement une clarification pour ce même intent
+            prior_intent = self._extract_prior_intent(prior_context or [])
+            if prior_intent:
+                return prior_intent, 0.75
+
             return "UNKNOWN", 0.0
 
         best_intent = max(scores, key=scores.get)  # type: ignore
         return best_intent, scores[best_intent]
+
+    def _extract_prior_intent(self, context: list) -> str:
+        """
+        Si le dernier message bot du contexte était un 'write_pending',
+        retourne l'intent correspondant pour guider le parser sur les clarifications.
+        """
+        for turn in reversed(context):
+            if turn.get("role") == "bot":
+                content = turn.get("content", "")
+                # Cherche des marqueurs de pending dans le texte sanitizé
+                if "CREATE_APPOINTMENT" in content or "Nouveau RDV" in content:
+                    return "CREATE_APPOINTMENT"
+                if "OPEN_PRESCRIPTION" in content or "Ordonnance" in content:
+                    return "CREATE_PRESCRIPTION"
+                if "OPEN_DEVIS" in content or "Devis" in content:
+                    return "CREATE_DEVIS"
+                break
+        return ""
 
     def _extract_entities(self, text: str, intent: str) -> Dict[str, Any]:
         """Extrait les entités pertinentes du message."""

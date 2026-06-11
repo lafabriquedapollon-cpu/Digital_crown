@@ -8,7 +8,7 @@ from backend import models, database
 from backend.schemas import installments as schemas
 from backend.routers.auth import get_current_user
 
-router = APIRouter(prefix="/installments", tags=["installments"])
+router = APIRouter(tags=["installments"])
 
 @router.get("/patient/{patient_id}", response_model=List[schemas.InstallmentPlanResponse])
 def get_installment_plans(patient_id: int, db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_user)):

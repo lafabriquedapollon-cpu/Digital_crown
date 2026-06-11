@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List
 
 from backend import models
-from backend.database import SessionLocal
+from backend.database import SessionLocal, get_db
 from backend.schemas.catalog import (
     SpecialtyCreate, SpecialtyUpdate, SpecialtyOut,
     PathologyCreate, PathologyUpdate, PathologyOut,
@@ -12,13 +12,6 @@ from backend.schemas.catalog import (
 from backend.routers.auth import get_current_user
 
 router = APIRouter(tags=["Catalog (Specialties, Acts, Pathologies)"])
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 # ==============================================================================
 # --- SPECIALTIES ---

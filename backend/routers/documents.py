@@ -227,7 +227,18 @@ async def generate_document(req: schemas.DocumentRequest, archive: bool = False,
                     }
                     break
 
-        return {"status": "success", "pdf_url": pdf_url, "warnings": warnings, "rdv_suggestion": rdv_suggestion}
+        # D3: Suggestion ordonnance radio post-prothèse
+        suggest_radio = False
+        _PROTHESE_KEYWORDS = ['couronne', 'prothèse', 'prothese', 'bridge', 'implant', 'facette', 'inlay', 'onlay']
+        if req.type in ["honoraires", "note"] and not preview:
+            items = req.data.get('payments', req.data.get('items', []))
+            for item in items:
+                act_name = (item.get('acte') or item.get('description') or '').lower()
+                if any(k in act_name for k in _PROTHESE_KEYWORDS):
+                    suggest_radio = True
+                    break
+
+        return {"status": "success", "pdf_url": pdf_url, "warnings": warnings, "rdv_suggestion": rdv_suggestion, "suggest_radio": suggest_radio}
     except ValueError as e:
         msg = str(e)
         if msg.startswith("DOUBLE_DETECTED:"):

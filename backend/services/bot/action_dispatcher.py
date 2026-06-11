@@ -49,6 +49,124 @@ class BotResponse:
 class ActionDispatcher:
     """Exécute les intents en appelant les services existants."""
 
+    def execute(
+        self, pending_action: Dict[str, Any], db: Session, user: models.User
+    ) -> BotResponse:
+        """Exécute une pending_action confirmée par l'utilisateur."""
+        action_type = pending_action.get("type")
+        params = pending_action.get("params", {})
+
+        executors = {
+            "CREATE_APPOINTMENT": self._exec_create_appointment,
+            "OPEN_PRESCRIPTION_EDITOR": self._exec_open_prescription,
+            "OPEN_DEVIS_EDITOR": self._exec_open_devis,
+        }
+        fn = executors.get(action_type)
+        if not fn:
+            return BotResponse(
+                message=f"Type d'action inconnu : {action_type}",
+                action_type="error",
+            )
+        try:
+            return fn(params, db, user)
+        except Exception as e:
+            logger.exception("Erreur execute action=%s: %s", action_type, e)
+            return BotResponse(
+                message=f"Erreur lors de l'exécution : {e}",
+                action_type="error",
+            )
+
+    def _exec_create_appointment(
+        self, params: Dict[str, Any], db: Session, user: models.User
+    ) -> BotResponse:
+        """Crée réellement le rendez-vous en base."""
+        from datetime import datetime as dt
+
+        patient_id = params.get("patient_id")
+        patient_name = params.get("patient_name", "")
+        datetime_str = params.get("datetime_start")
+        motif = params.get("motif", "Consultation")
+        duration = params.get("duration_minutes", 30)
+        employer_id = user.get_employer_id()
+
+        # Résoudre patient_id si absent
+        if not patient_id and patient_name:
+            patient = db.query(models.Patient).filter(
+                models.Patient.employer_id == employer_id,
+                or_(
+                    func.concat(models.Patient.prenom, " ", models.Patient.nom).ilike(f"%{patient_name}%"),
+                    func.concat(models.Patient.nom, " ", models.Patient.prenom).ilike(f"%{patient_name}%"),
+                )
+            ).first()
+            if patient:
+                patient_id = patient.id
+                patient_name = f"{patient.prenom} {patient.nom}"
+
+        if not datetime_str:
+            return BotResponse(
+                message="Date et heure manquantes pour créer le rendez-vous.",
+                action_type="error",
+            )
+
+        try:
+            datetime_start = dt.fromisoformat(datetime_str)
+        except ValueError:
+            return BotResponse(
+                message=f"Format de date invalide : {datetime_str}",
+                action_type="error",
+            )
+
+        appt = models.Appointment(
+            patient_id=patient_id,
+            patient_name=patient_name if not patient_id else None,
+            datetime_start=datetime_start,
+            duration_minutes=duration,
+            motif=motif,
+            employer_id=employer_id,
+        )
+        db.add(appt)
+        db.commit()
+        db.refresh(appt)
+
+        date_label = datetime_start.strftime("%d/%m/%Y à %Hh%M")
+        return BotResponse(
+            message=(
+                f"✅ **Rendez-vous créé !**\n"
+                f"👤 {patient_name or 'Patient à identifier'}\n"
+                f"📅 {date_label} · {duration} min · {motif}"
+            ),
+            data={"appointment_id": appt.id},
+            action_type="write_done",
+            suggestions=["Agenda d'aujourd'hui", "Créer un autre RDV"],
+        )
+
+    def _exec_open_prescription(
+        self, params: Dict[str, Any], db: Session, user: models.User
+    ) -> BotResponse:
+        """Retourne un redirect_url pour ouvrir l'éditeur d'ordonnance."""
+        patient_id = params.get("patient_id")
+        procedure = params.get("procedure", "")
+        url = f"/bibliotheque?mode=prescription&patient_id={patient_id}"
+        if procedure:
+            url += f"&procedure={procedure}"
+        return BotResponse(
+            message="✅ Ouverture de l'éditeur d'ordonnance...",
+            data={"redirect_url": url},
+            action_type="redirect",
+        )
+
+    def _exec_open_devis(
+        self, params: Dict[str, Any], db: Session, user: models.User
+    ) -> BotResponse:
+        """Retourne un redirect_url pour ouvrir le module devis."""
+        patient_id = params.get("patient_id")
+        url = f"/patients/{patient_id}?tab=devis"
+        return BotResponse(
+            message="✅ Ouverture du module devis...",
+            data={"redirect_url": url},
+            action_type="redirect",
+        )
+
     def dispatch(
         self, parsed: ParsedIntent, db: Session, user: models.User
     ) -> BotResponse:
@@ -254,24 +372,42 @@ class ActionDispatcher:
             models.Payment.payment_date <= today_end,
         ).scalar() or 0.0
 
-        # Calcul mathématique exact des Créances (Somme Actes - Somme Paiements) par patient
-        from collections import namedtuple
-        Debtor = namedtuple('Debtor', ['nom', 'prenom', 'total'])
-        
-        patients = db.query(models.Patient).filter(models.Patient.employer_id == employer_id).all()
-        debtors_list = []
-        total_debt = 0.0
-        
-        for p in patients:
-            p_acts = db.query(func.sum(models.Acte.montant)).filter(models.Acte.patient_id == p.id).scalar() or 0.0
-            p_pays = db.query(func.sum(models.Payment.amount)).filter(models.Payment.patient_id == p.id).scalar() or 0.0
-            debt = float(p_acts) - float(p_pays)
-            if debt > 0:
-                total_debt += debt
-                debtors_list.append(Debtor(nom=p.nom, prenom=p.prenom, total=debt))
-                
-        debtors_list.sort(key=lambda x: x.total, reverse=True)
-        debtors = debtors_list[:3]
+        # Calcul créances — une seule requête GROUP BY (remplace la boucle O(N))
+        acts_sub = (
+            db.query(models.Acte.patient_id, func.sum(models.Acte.montant).label("total_acts"))
+            .group_by(models.Acte.patient_id)
+            .subquery()
+        )
+        pays_sub = (
+            db.query(models.Payment.patient_id, func.sum(models.Payment.amount).label("total_pays"))
+            .group_by(models.Payment.patient_id)
+            .subquery()
+        )
+        from sqlalchemy import literal_column
+        debt_expr = (
+            func.coalesce(acts_sub.c.total_acts, 0) - func.coalesce(pays_sub.c.total_pays, 0)
+        ).label("debt")
+
+        debtor_rows = (
+            db.query(models.Patient.nom, models.Patient.prenom, debt_expr)
+            .outerjoin(acts_sub, acts_sub.c.patient_id == models.Patient.id)
+            .outerjoin(pays_sub, pays_sub.c.patient_id == models.Patient.id)
+            .filter(models.Patient.employer_id == employer_id)
+            .having(debt_expr > 0)
+            .order_by(debt_expr.desc())
+            .limit(3)
+            .all()
+        )
+        total_debt = float(
+            db.query(func.sum(
+                func.coalesce(acts_sub.c.total_acts, 0) - func.coalesce(pays_sub.c.total_pays, 0)
+            ))
+            .outerjoin(acts_sub, acts_sub.c.patient_id == models.Patient.id)
+            .outerjoin(pays_sub, pays_sub.c.patient_id == models.Patient.id)
+            .filter(models.Patient.employer_id == employer_id)
+            .scalar() or 0.0
+        )
+        debtors = debtor_rows
 
         fmt = lambda n: f"{int(n):,}".replace(",", " ")
 
@@ -284,7 +420,7 @@ class ActionDispatcher:
         if debtors:
             lines.append("\n🔴 **Top débiteurs :**")
             for d in debtors:
-                lines.append(f"  · {d.prenom} {d.nom} — {fmt(d.total)} MAD")
+                lines.append(f"  · {d.prenom} {d.nom} — {fmt(d.debt)} MAD")
 
         return BotResponse(
             message="\n".join(lines),
@@ -300,7 +436,13 @@ class ActionDispatcher:
     def _handle_query_lab(
         self, parsed: ParsedIntent, db: Session, user: models.User
     ) -> BotResponse:
-        jobs = db.query(models.LabJob).all()
+        employer_id = user.get_employer_id()
+        jobs = (
+            db.query(models.LabJob)
+            .join(models.Patient, models.LabJob.patient_id == models.Patient.id)
+            .filter(models.Patient.employer_id == employer_id)
+            .all()
+        )
         if not jobs:
             return BotResponse(
                 message="🔬 Aucun travail de laboratoire en cours.",
@@ -446,8 +588,8 @@ class ActionDispatcher:
                     action_type="read",
                     suggestions=["Demain", "La semaine prochaine"]
                 )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("Vérification congés agenda ignorée : %s", e)
 
         return BotResponse(
             message=(
@@ -510,7 +652,8 @@ class ActionDispatcher:
                 f"  · {d.get('name', '?')} {d.get('dosage', '')} — {d.get('posologie', '')}"
                 for d in smart.get("drugs", [])
             )
-        except Exception:
+        except Exception as e:
+            logger.warning("Smart prescription indisponible : %s", e)
             smart = {"drugs": [], "source": "Système"}
             drugs_summary = "  (suggestion automatique non disponible)"
 

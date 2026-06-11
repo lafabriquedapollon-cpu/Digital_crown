@@ -54,7 +54,7 @@ CCAM_SUGGESTIONS = {
     'reste_radiculaire': "HBGD031 (Extraction de racine)",
     'implant': "LBLD015 (Pose d'implant)",
     'couronne': "HBLD018 (Pose de couronne)",
-    'bridge': "HBLD023 (Pont de 3 éléments)",
+    'bridge': "HBLD023 (Bridge de 3 éléments)",
     'tartre': "HBJD001 (Détartrage complet)",
 }
 

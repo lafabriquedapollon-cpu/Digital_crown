@@ -15,14 +15,18 @@ export interface ActHistory {
 
 const STORAGE_KEY = 'ghost_act_brain';
 
+let _historyCache: Record<string, ActHistory> | null = null;
+
 export const PriceBrain = {
   /**
-   * Récupère l'historique complet
+   * Récupère l'historique complet (en mémoire cache, invalidé à chaque écriture)
    */
   getHistory: (): Record<string, ActHistory> => {
+    if (_historyCache) return _historyCache;
     try {
       const data = localStorage.getItem(STORAGE_KEY);
-      return data ? JSON.parse(data) : {};
+      _historyCache = data ? JSON.parse(data) : {};
+      return _historyCache!;
     } catch {
       return {};
     }
@@ -35,7 +39,7 @@ export const PriceBrain = {
     const history = PriceBrain.getHistory();
     const actId = id || `brain_${name}`;
     const existing = history[actId] || { id: actId, name, price: 0, usageCount: 0, category };
-    
+
     history[actId] = {
       ...existing,
       price: price, // On retient le dernier prix saisi
@@ -45,6 +49,7 @@ export const PriceBrain = {
     };
 
     localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+    _historyCache = null;
   },
 
   /**
@@ -62,7 +67,7 @@ export const PriceBrain = {
    */
   suggestPrice: (name: string): number | null => {
     const history = PriceBrain.getHistory();
-    return history[name]?.price || null;
+    return history[`brain_${name}`]?.price ?? history[name]?.price ?? null;
   },
 
   /**
@@ -74,7 +79,9 @@ export const PriceBrain = {
       const history = data ? JSON.parse(data) : {};
       history[title.toLowerCase()] = { advance, months, monthly, lastUsed: Date.now() };
       localStorage.setItem('ghost_installment_brain', JSON.stringify(history));
-    } catch (e) {}
+    } catch (e) {
+      console.warn('PriceBrain: failed to record installment plan', e);
+    }
   },
 
   /**
@@ -94,7 +101,9 @@ export const PriceBrain = {
           return plan as { advance: number, months: number, monthly: number };
         }
       }
-    } catch (e) {}
+    } catch (e) {
+      console.warn('PriceBrain: failed to suggest installment plan', e);
+    }
     return null;
   }
 };

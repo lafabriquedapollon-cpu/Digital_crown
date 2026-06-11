@@ -101,5 +101,8 @@ class TestLogout:
         assert me.status_code == 401
 
     def test_logout_requires_auth(self, client, dentiste, refresh_token):
+        # refresh_token fixture logs in via TestClient, setting access_token cookie;
+        # clear it to simulate a truly unauthenticated request.
+        client.cookies.clear()
         resp = client.post("/api/auth/logout", json={"refresh_token": refresh_token})
         assert resp.status_code == 401

@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import desc
 from typing import Dict, Any, Optional, List
 import logging
+from backend.services.security.data_sanitizer import data_sanitizer
 
 from backend.database import get_db
 from backend import models
@@ -150,15 +151,32 @@ async def bot_chat(
     db.add(user_msg)
     db.commit()
 
-    # 1. Regex First (Ultra Rapide)
-    parsed_intent = regex_parser.parse(message)
+    # 2. Construire la fenêtre de contexte conversationnel (4 derniers messages)
+    #    Les réponses bot sont sanitizées avant d'être passées au LLM.
+    recent_msgs = (
+        db.query(models.BotMessage)
+        .filter(models.BotMessage.session_id == session_id)
+        .order_by(desc(models.BotMessage.created_at))
+        .limit(4)
+        .all()
+    )
+    context_window = [
+        {
+            "role": m.sender,
+            "content": data_sanitizer.sanitize_bot_response(m.text) if m.sender == "bot" else m.text,
+        }
+        for m in reversed(recent_msgs)
+    ]
 
-    # 2. Si le regex n'est pas confiant, on essaye le LLM
+    # 3. Regex First (Ultra Rapide)
+    parsed_intent = regex_parser.parse(message, context=context_window)
+
+    # 4. Si le regex n'est pas confiant, on essaye le LLM avec le contexte
     if parsed_intent.confidence < 0.85 and parsed_intent.intent == "UNKNOWN":
-        logger.info("Regex non confiant, appel au LLM...")
-        parsed_intent = parser.parse(message)
+        logger.info("Regex non confiant, appel au LLM avec contexte...")
+        parsed_intent = parser.parse(message, context=context_window)
 
-    # 3. Dispatch Action
+    # 5. Dispatch Action
     response = dispatcher.dispatch(parsed_intent, db, current_user)
     
     # Récupération des données brutes
@@ -192,4 +210,9 @@ async def bot_execute(
     """
     Exécute une action en attente (pending_action) après confirmation utilisateur.
     """
-    return {"status": "success", "message": "Action exécutée via endpoint métier."}
+    pending_action = payload.get("pending_action")
+    if not pending_action:
+        raise HTTPException(status_code=400, detail="pending_action manquant")
+
+    response = dispatcher.execute(pending_action, db, current_user)
+    return response.to_dict()

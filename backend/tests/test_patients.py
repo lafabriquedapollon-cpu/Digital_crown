@@ -63,6 +63,7 @@ class TestGetPatient:
 
     def test_get_unauthenticated(self, client, auth_headers):
         pid = self._create(client, auth_headers)
+        client.cookies.clear()  # drop cookie set during auth_headers login
         resp = client.get(f"/api/patients/{pid}")
         assert resp.status_code == 401
 
@@ -85,6 +86,7 @@ class TestUpdatePatient:
 
     def test_update_unauthenticated(self, client, auth_headers):
         pid = self._create(client, auth_headers)
+        client.cookies.clear()  # drop cookie set during auth_headers login
         resp = client.put(f"/api/patients/{pid}", json={**VALID_PATIENT, "nom": "X"})
         assert resp.status_code == 401
 
@@ -92,26 +94,23 @@ class TestUpdatePatient:
 class TestMultiTenantIsolation:
     """Un médecin ne doit pas voir les patients d'un autre."""
 
-    def _login_as(self, client, email, password):
-        r = client.post("/api/auth/login", data={"username": email, "password": password})
-        return {"Authorization": f"Bearer {r.json()['access_token']}"}
-
     def test_doctor_b_cannot_see_doctor_a_patient(self, client, db):
         from backend import models
         from backend.security import get_password_hash
 
-        doc_a = models.User(email="a@x.ma", hashed_password=get_password_hash("Pass123!"), role="DENTISTE", is_active=True)
-        doc_b = models.User(email="b@x.ma", hashed_password=get_password_hash("Pass123!"), role="DENTISTE", is_active=True)
+        doc_a = models.User(email="a@x.ma", hashed_password=get_password_hash("Pass123!"), role="DENTISTE", is_active=True, is_licensed=True)
+        doc_b = models.User(email="b@x.ma", hashed_password=get_password_hash("Pass123!"), role="DENTISTE", is_active=True, is_licensed=True)
         db.add_all([doc_a, doc_b])
         db.commit()
 
-        headers_a = self._login_as(client, "a@x.ma", "Pass123!")
-        headers_b = self._login_as(client, "b@x.ma", "Pass123!")
-
-        # Doc A crée un patient
-        r = client.post("/api/patients/", json=VALID_PATIENT, headers=headers_a)
+        # Use cookie-based auth: login sets access_token cookie, no explicit header needed.
+        # get_current_user prioritises the cookie, so we clear between sessions.
+        client.cookies.clear()
+        client.post("/api/auth/login", data={"username": "a@x.ma", "password": "Pass123!"})
+        r = client.post("/api/patients/", json=VALID_PATIENT)
         pid = r.json()["id"]
 
-        # Doc B ne doit pas y avoir accès
-        resp = client.get(f"/api/patients/{pid}", headers=headers_b)
+        client.cookies.clear()
+        client.post("/api/auth/login", data={"username": "b@x.ma", "password": "Pass123!"})
+        resp = client.get(f"/api/patients/{pid}")
         assert resp.status_code in (403, 404)

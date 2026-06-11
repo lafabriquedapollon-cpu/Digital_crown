@@ -1,87 +1,126 @@
-import os
+"""Tests for BackupService — aligned with the current API."""
 import pytest
-from datetime import datetime
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from backend import models
-from backend.services.backup_service import backup_service
+from pathlib import Path
+from unittest.mock import patch
+from cryptography.fernet import Fernet
 
-# Configuration of test database
-SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
-engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+from backend.services.backup_service import BackupService
 
-@pytest.fixture(scope="function")
-def db():
-    models.Base.metadata.create_all(bind=engine)
-    session = TestingSessionLocal()
-    try:
-        yield session
-    finally:
-        session.close()
-        models.Base.metadata.drop_all(bind=engine)
 
-def test_key_derivation():
-    # Verify that key derivation produces a valid base64 key
-    key = backup_service._derive_fernet_key("3a5b6c7d8e9f0112131415161718192021222324252627282930313233343536")
-    assert isinstance(key, bytes)
-    assert len(key) == 44 # Standard Fernet key base64 length
+def test_get_or_create_key_creates_file(tmp_path):
+    """First call generates and persists a key file; returns a Fernet instance."""
+    with patch("backend.services.backup_service.AppPaths.get_user_data_dir", return_value=tmp_path):
+        cipher = BackupService._get_or_create_key()
+        key_path = tmp_path / "backup.key"
+        assert key_path.exists()
+        assert isinstance(cipher, Fernet)
 
-def test_encryption_and_decryption_cycle(tmp_path):
-    # 1. Create a dummy file with sensitive patient data
-    sample_file = tmp_path / "sensitive_patient_data.db"
-    sample_content = b"Patient zero: John Doe, implants: 2, ceb-angle: 25.6"
-    sample_file.write_bytes(sample_content)
 
-    encrypted_file = tmp_path / "encrypted_archive.enc"
-    decrypted_file = tmp_path / "restored_patient_data.db"
+def test_get_or_create_key_reuses_existing_key(tmp_path):
+    """Subsequent calls load the same key (no new file generated)."""
+    with patch("backend.services.backup_service.AppPaths.get_user_data_dir", return_value=tmp_path):
+        cipher1 = BackupService._get_or_create_key()
+        key1 = (tmp_path / "backup.key").read_bytes()
 
-    # 2. Encrypt sample file
-    success_enc = backup_service.encrypt_file(str(sample_file), str(encrypted_file))
-    assert success_enc is True
-    assert encrypted_file.exists()
-    assert encrypted_file.read_bytes() != sample_content # Assert it is encrypted
+        cipher2 = BackupService._get_or_create_key()
+        key2 = (tmp_path / "backup.key").read_bytes()
 
-    # 3. Decrypt sample file
-    success_dec = backup_service.decrypt_file(str(encrypted_file), str(decrypted_file))
-    assert success_dec is True
-    assert decrypted_file.exists()
-    assert decrypted_file.read_bytes() == sample_content # Byte-by-byte parity check
+        assert key1 == key2
 
-def test_decryption_with_bad_key(tmp_path):
-    # 1. Encrypt file with standard service key
-    sample_file = tmp_path / "secret.txt"
-    sample_file.write_bytes(b"Top secret data")
-    encrypted_file = tmp_path / "secret.enc"
-    backup_service.encrypt_file(str(sample_file), str(encrypted_file))
 
-    # 2. Tamper with the encrypted file
-    bad_encrypted_file = tmp_path / "bad_secret.enc"
-    bad_encrypted_file.write_bytes(b"corrupted payload data")
+def _make_sqlite_db(path: Path) -> None:
+    """Create a minimal valid SQLite database at *path*."""
+    import sqlite3
+    conn = sqlite3.connect(str(path))
+    conn.execute("CREATE TABLE records (id INTEGER PRIMARY KEY, name TEXT)")
+    conn.execute("INSERT INTO records VALUES (1, 'test')")
+    conn.commit()
+    conn.close()
 
-    # 3. Attempt decryption should fail
-    restored_file = tmp_path / "restored_secret.txt"
-    success_dec = backup_service.decrypt_file(str(bad_encrypted_file), str(restored_file))
-    assert success_dec is False
 
-def test_run_automated_backup(db, tmp_path):
-    # 1. Setup a fake database file
-    db_file = tmp_path / "digital_crown_local.db"
-    db_file.write_bytes(b"SQLite format 3\x00...")
-    
+def test_encrypt_and_save_produces_different_bytes(tmp_path):
+    """Encrypted file must differ from the plaintext source."""
+    source = tmp_path / "clinical_vault.db"
+    _make_sqlite_db(source)
+    target = tmp_path / "backup.enc"
+
+    cipher = Fernet(Fernet.generate_key())
+    BackupService._encrypt_and_save(source, target, cipher)
+
+    assert target.exists()
+    assert target.read_bytes() != source.read_bytes()
+
+
+def test_restore_backup_roundtrip(tmp_path):
+    """Encrypt then restore must preserve database content."""
+    import sqlite3
+
+    source = tmp_path / "clinical_vault.db"
+    _make_sqlite_db(source)
+
+    enc_file = tmp_path / "backup.enc"
+    restored = tmp_path / "restored.db"
+
+    cipher = Fernet(Fernet.generate_key())
+    BackupService._encrypt_and_save(source, enc_file, cipher)
+
+    # Stub _get_or_create_key so restore uses the same cipher
+    with patch.object(BackupService, "_get_or_create_key", return_value=cipher):
+        BackupService.restore_backup(enc_file, restored)
+
+    # sqlite3.backup() may change internal header counters, so verify content not raw bytes
+    conn = sqlite3.connect(str(restored))
+    rows = conn.execute("SELECT id, name FROM records").fetchall()
+    conn.close()
+    assert rows == [(1, "test")]
+
+
+def test_restore_backup_missing_file_raises(tmp_path):
+    """restore_backup must raise FileNotFoundError for a non-existent enc file."""
+    with pytest.raises(FileNotFoundError):
+        BackupService.restore_backup(tmp_path / "ghost.enc", tmp_path / "out.db")
+
+
+def test_cleanup_old_backups_keeps_n_most_recent(tmp_path):
+    """_cleanup_old_backups must delete files beyond the keep limit."""
     backups_dir = tmp_path / "backups"
+    backups_dir.mkdir()
+    prefix = "clinical_vault_backup_"
 
-    # 2. Run the automated backup service
-    success = backup_service.run_automated_backup(db, str(db_file), str(backups_dir))
-    assert success is True
+    # Create 10 fake backup files with distinct mtimes
+    files = []
+    for i in range(10):
+        f = backups_dir / f"{prefix}2026010{i:01d}_120000.enc"
+        f.write_bytes(b"x")
+        files.append(f)
 
-    # 3. Check that local encrypted file exists
-    local_backups = os.listdir(str(backups_dir))
-    assert len(local_backups) == 1
-    assert local_backups[0].endswith(".enc")
+    BackupService._cleanup_old_backups(backups_dir, prefix=prefix, keep=7)
 
-    # 4. Check AuditLog database registration
-    logs = db.query(models.AuditLog).filter(models.AuditLog.action == "BACKUP_CLOUD").all()
-    assert len(logs) == 1
-    assert "Sauvegarde cloud" in logs[0].details
-    assert local_backups[0] in logs[0].details
+    remaining = list(backups_dir.glob(f"{prefix}*.enc"))
+    assert len(remaining) == 7
+
+
+def test_run_daily_backup_returns_true_when_db_exists(tmp_path):
+    """run_daily_backup returns True and creates an encrypted .enc file."""
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    db_file = data_dir / "clinical_vault.db"
+    _make_sqlite_db(db_file)
+
+    with patch("backend.services.backup_service.AppPaths.get_user_data_dir", return_value=data_dir):
+        result = BackupService.run_daily_backup()
+
+    assert result is True
+    enc_files = list((data_dir / "backups").glob("clinical_vault_backup_*.enc"))
+    assert len(enc_files) == 1
+
+
+def test_run_daily_backup_returns_true_when_db_missing(tmp_path):
+    """run_daily_backup should still return True (logs warning) when DB is absent."""
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+
+    with patch("backend.services.backup_service.AppPaths.get_user_data_dir", return_value=data_dir):
+        result = BackupService.run_daily_backup()
+
+    assert result is True

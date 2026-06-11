@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Backgro
 from sqlalchemy.orm import Session
 
 from backend import models, schemas, database
+from backend.database import get_db
 from backend.routers.auth import get_current_user
 from backend.services.card_extractor import card_extractor
 from backend.services.logo_processor import LogoProcessor
@@ -17,14 +18,6 @@ from backend.services.license_service import LicenseService
 
 router = APIRouter()
 
-
-def get_db():
-    """Dépendance pour obtenir une session DB."""
-    db = database.SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 @router.post("/recheck-license")
 async def recheck_license(request: Request, current_user: models.User = Depends(get_current_user)):

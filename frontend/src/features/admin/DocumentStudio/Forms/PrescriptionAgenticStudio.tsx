@@ -50,6 +50,21 @@ const FORMES = [
   { l: 'AUTRE', icon: Hash },
 ];
 
+function fuzzyMatch(input: string, target: string): boolean {
+  const a = input.toLowerCase().trim();
+  const b = target.toLowerCase();
+  if (b.includes(a)) return true;
+  if (a.length < 3) return false;
+  let dist = 0, i = 0, j = 0;
+  while (i < a.length && j < b.length) {
+    if (a[i] === b[j]) { i++; j++; } else { dist++; j++; }
+  }
+  dist += a.length - i;
+  return dist <= 2;
+}
+
+const KIN_PRESET = { name: 'KIN', dosage: '-', forme: 'BAIN DE BOUCHE', posologie: '1 rinçage / jour pendant 7 jours' };
+
 const DEFAULT_MOROCCO_PRESETS = [
   {
     label: 'Avulsion Simple',
@@ -134,7 +149,6 @@ export const PrescriptionAgenticStudio: React.FC<PrescriptionAgenticStudioProps>
   const [step, setStep] = useState<'IDLE' | 'RESEARCH' | 'ASSESSMENT' | 'PLANNING'>('IDLE');
   const [assessment, setAssessment] = useState<any>(null);
   const [loading, setLoading] = useState(false);
-  const [savingHabits, setSavingHabits] = useState(false);
 
   const [activeSearchId, setActiveSearchId] = useState<{ id: number; field: string } | null>(null);
   const [suggestions, setSuggestions] = useState<{ medications: string[]; dosages: string[]; posologies: string[] }>({
@@ -143,6 +157,7 @@ export const PrescriptionAgenticStudio: React.FC<PrescriptionAgenticStudioProps>
   const [formeDropdownCoords, setFormeDropdownCoords] = useState<{ top: number; left: number; width: number } | null>(null);
   const [presets, setPresets] = useState<any[]>([]);
   const [showPresets, setShowPresets] = useState(true);
+  const [selectedUserPreset, setSelectedUserPreset] = useState('');
   const [savingAsPreset, setSavingAsPreset] = useState(false);
   const [showSavePresetModal, setShowSavePresetModal] = useState(false);
   const [newPresetName, setNewPresetName] = useState('');
@@ -216,7 +231,19 @@ export const PrescriptionAgenticStudio: React.FC<PrescriptionAgenticStudioProps>
     try {
       if (field === 'name' && val.length >= 1) {
         const res = await api.get(`/prescriptions/habits/suggest?q=${encodeURIComponent(val)}`, { signal: abortSignal });
-        setSuggestions(res.data);
+        const data = res.data;
+        // Fuzzy fallback: if API returned nothing, scan presets locally
+        if ((!data.medications || data.medications.length === 0)) {
+          const allPresetNames = DEFAULT_MOROCCO_PRESETS.flatMap(p => p.drugs.map(d => d.name));
+          const kinNames = ['KIN'];
+          const pool = [...new Set([...allPresetNames, ...kinNames])];
+          const fuzzyHits = pool.filter(n => fuzzyMatch(val, n));
+          if (fuzzyHits.length > 0) {
+            setSuggestions({ medications: fuzzyHits, dosages: [], posologies: [] });
+            return;
+          }
+        }
+        setSuggestions(data);
       } else if ((field === 'dosage' || field === 'posologie')) {
         const drug = drugs.find(d => d.id === id);
         if (drug?.name) {
@@ -317,6 +344,7 @@ export const PrescriptionAgenticStudio: React.FC<PrescriptionAgenticStudioProps>
       'gelule': 'GÉLULES',
       'gélule': 'GÉLULES',
       'bain': 'BAIN DE BOUCHE',
+      'kin': 'BAIN DE BOUCHE',
       'sirop': 'SIROP',
       'pommade': 'POMMADE',
       'crème': 'CRÈME',
@@ -379,6 +407,13 @@ export const PrescriptionAgenticStudio: React.FC<PrescriptionAgenticStudioProps>
     setSuggestions({ medications: [], dosages: [], posologies: [] });
     setActiveSearchId(null);
     if (field === 'name') {
+      // KIN: auto-fill preset directly without API round-trip
+      if (val.toUpperCase() === 'KIN') {
+        onUpdateDrug(id, 'dosage', KIN_PRESET.dosage);
+        onUpdateDrug(id, 'forme', KIN_PRESET.forme as any);
+        onUpdateDrug(id, 'posologie', KIN_PRESET.posologie);
+        return;
+      }
       api.get(`/prescriptions/habits/details?med_name=${encodeURIComponent(val)}`).then(res => {
         if (res.data.dosages?.length === 1) onUpdateDrug(id, 'dosage', res.data.dosages[0]);
         if (res.data.posologies?.length === 1) onUpdateDrug(id, 'posologie', res.data.posologies[0]);
@@ -532,26 +567,7 @@ export const PrescriptionAgenticStudio: React.FC<PrescriptionAgenticStudioProps>
     }
   }, [drugs, setDrugs, onUpdateDrug]);
 
-  // Batch save — un seul appel API
-  const handleBatchSave = async () => {
-    const validDrugs = drugs.filter(d => d.name.trim());
-    if (!validDrugs.length) return;
-    setSavingHabits(true);
-    try {
-      await api.post('/prescriptions/habits/record-batch', validDrugs.map(d => ({
-        medication_name: d.name, dosage: d.dosage, posologie: d.posologie,
-      })));
-      if (onSaveHabit && assessment?.act_context) {
-        onSaveHabit(assessment.act_context, drugs);
-      } else {
-        alert('Habitudes mémorisées.');
-      }
-    } catch {
-      alert('Erreur lors de la mémorisation.');
-    } finally {
-      setSavingHabits(false);
-    }
-  };
+
 
   // Fermeture du dropdown Forme au scroll ou resize
   useEffect(() => {
@@ -788,62 +804,66 @@ export const PrescriptionAgenticStudio: React.FC<PrescriptionAgenticStudioProps>
               <button onClick={() => setShowPresets(false)} className="text-[9px] font-black text-slate-300 hover:text-slate-500 uppercase tracking-tighter transition-colors">Masquer</button>
             </div>
 
-            <div className="px-4 space-y-4">
-              {/* SYSTEM PRESETS */}
-              <div className="space-y-2">
-                <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block pl-1">Presets</span>
-                <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
-                  {DEFAULT_MOROCCO_PRESETS.map(p => (
-                    <button
-                      key={p.label}
-                      onClick={() => applyPresetWithSafety(p.drugs, p.label)}
-                      className={cn(
-                        "px-4 py-2 bg-white border rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap shadow-sm active:scale-95 flex items-center gap-2 group/chip",
-                        p.color === 'blue' ? "border-blue-100 text-blue-600 hover:bg-blue-600 hover:text-white" :
-                        p.color === 'rose' ? "border-rose-100 text-rose-600 hover:bg-rose-600 hover:text-white" :
-                        p.color === 'emerald' ? "border-emerald-100 text-emerald-600 hover:bg-emerald-600 hover:text-white" :
-                        p.color === 'amber' ? "border-amber-100 text-amber-600 hover:bg-amber-600 hover:text-white" :
-                        p.color === 'indigo' ? "border-indigo-100 text-indigo-600 hover:bg-indigo-600 hover:text-white" :
-                        "border-teal-100 text-teal-600 hover:bg-teal-600 hover:text-white"
-                      )}
-                    >
-                      <div className="w-1.5 h-1.5 rounded-full bg-current opacity-40 group-hover/chip:opacity-100" />
-                      {p.label}
-                      <span className="bg-current/10 group-hover/chip:bg-white/20 px-1.5 py-0.5 rounded-md text-[7px] font-black tabular-nums">{p.drugs.length}</span>
-                    </button>
-                  ))}
+            <div className="px-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* BLOC 1 — Protocoles Système */}
+              <div className="space-y-1.5">
+                <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Protocoles Système</span>
+                <div className="relative">
+                  <select
+                    className="w-full appearance-none bg-white border border-slate-200 rounded-2xl px-4 py-2.5 pr-8 text-[9px] font-black text-slate-600 uppercase tracking-widest cursor-pointer hover:border-primary/30 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors"
+                    value=""
+                    onChange={e => {
+                      const p = DEFAULT_MOROCCO_PRESETS.find(p => p.label === e.target.value);
+                      if (p) applyPresetWithSafety(p.drugs, p.label);
+                      e.currentTarget.value = '';
+                    }}
+                  >
+                    <option value="" disabled>— Choisir un protocole —</option>
+                    {DEFAULT_MOROCCO_PRESETS.map(p => (
+                      <option key={p.label} value={p.label}>{p.label} ({p.drugs.length} méd.)</option>
+                    ))}
+                  </select>
+                  <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-slate-400">
+                    <ChevronDown size={12} />
+                  </div>
                 </div>
               </div>
 
-              {/* USER PRESETS */}
-              {presets.length > 0 && (
-                <div className="space-y-2">
-                  <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block pl-1">Ordonnances personnalisées</span>
-                  <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
-                    {presets.map(p => (
-                      <div key={p.id} className="relative group/chip flex items-center">
-                        <button
-                          onClick={() => applyPresetWithSafety(p.drugs, p.act_context)}
-                          className="px-4 py-2 bg-slate-800 text-white border border-slate-700 rounded-2xl text-[9px] font-black uppercase tracking-widest hover:bg-primary hover:border-primary transition-all whitespace-nowrap shadow-sm active:scale-95 flex items-center gap-2"
-                        >
-                          <Brain size={10} className="text-blue-400 group-hover/chip:text-white transition-colors" />
-                          {p.act_context}
-                          {p.drugs?.length > 0 && (
-                            <span className="bg-white/10 group-hover/chip:bg-white/20 px-1.5 py-0.5 rounded-md text-[7px] font-black tabular-nums">{p.drugs.length}</span>
-                          )}
-                        </button>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); deletePreset(p.act_context); }}
-                          className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover/chip:opacity-100 transition-all hover:bg-red-600 hover:scale-110 shadow-sm text-[10px] pb-0.5"
-                          title="Supprimer ce preset"
-                        >
-                          ×
-                        </button>
-                      </div>
-                    ))}
+              {/* BLOC 2 — Mes Ordonnances (Cabinet) */}
+              <div className="space-y-1.5">
+                <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Mes Ordonnances</span>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <select
+                      className="w-full appearance-none bg-white border border-slate-200 rounded-2xl px-4 py-2.5 pr-8 text-[9px] font-black text-slate-600 uppercase tracking-widest cursor-pointer hover:border-primary/30 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      value={selectedUserPreset}
+                      disabled={presets.length === 0}
+                      onChange={e => {
+                        setSelectedUserPreset(e.target.value);
+                        const p = presets.find(p => p.act_context === e.target.value);
+                        if (p) applyPresetWithSafety(p.drugs, p.act_context);
+                      }}
+                    >
+                      <option value="">{presets.length === 0 ? '— Aucune ordonnance sauvegardée —' : '— Choisir une ordonnance —'}</option>
+                      {presets.map(p => (
+                        <option key={p.id} value={p.act_context}>{p.act_context}{p.drugs?.length > 0 ? ` (${p.drugs.length})` : ''}</option>
+                      ))}
+                    </select>
+                    <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-slate-400">
+                      <ChevronDown size={12} />
+                    </div>
                   </div>
+                  {selectedUserPreset && (
+                    <button
+                      onClick={() => { deletePreset(selectedUserPreset); setSelectedUserPreset(''); }}
+                      className="w-9 h-9 flex-shrink-0 bg-red-50 border border-red-100 text-red-400 rounded-2xl flex items-center justify-center hover:bg-red-500 hover:text-white transition-all text-sm font-black"
+                      title="Supprimer cette ordonnance"
+                    >
+                      ×
+                    </button>
+                  )}
                 </div>
-              )}
+              </div>
             </div>
           </motion.div>
         )}
@@ -1042,7 +1062,7 @@ export const PrescriptionAgenticStudio: React.FC<PrescriptionAgenticStudioProps>
                       <div className="col-span-12 lg:col-span-1 flex flex-col items-center gap-1 p-1 bg-slate-50/50 rounded-2xl border border-slate-100/50 self-stretch justify-center">
                         <button
                           type="button"
-                          onClick={() => { onUpdateDrug(drug.id, 'type', 'MEDICAMENT'); if (!drug.forme) onUpdateDrug(drug.id, 'forme', 'COMPRIMÉS'); }}
+                          onClick={() => setDrugs(drugs.map(d => d.id === drug.id ? { ...d, type: 'MEDICAMENT', forme: d.forme || 'COMPRIMÉS' } : d))}
                           className={cn(
                             'p-2 rounded-xl transition-all',
                             !isRadio ? 'bg-white text-primary shadow-md shadow-primary/5 ring-1 ring-primary/5' : 'text-slate-300 hover:text-slate-400',
@@ -1053,7 +1073,7 @@ export const PrescriptionAgenticStudio: React.FC<PrescriptionAgenticStudioProps>
                         </button>
                         <button
                           type="button"
-                          onClick={() => { onUpdateDrug(drug.id, 'type', 'EXAMEN'); onUpdateDrug(drug.id, 'dosage', ''); onUpdateDrug(drug.id, 'forme', ''); onUpdateDrug(drug.id, 'posologie', ''); }}
+                          onClick={() => setDrugs(drugs.map(d => d.id === drug.id ? { ...d, type: 'EXAMEN', dosage: '', forme: '', posologie: '' } : d))}
                           className={cn(
                             'p-2 rounded-xl transition-all',
                             isRadio ? 'bg-white text-amber-600 shadow-md shadow-amber-500/5 ring-1 ring-amber-500/5' : 'text-slate-300 hover:text-slate-400',
@@ -1225,16 +1245,6 @@ export const PrescriptionAgenticStudio: React.FC<PrescriptionAgenticStudioProps>
                   <ShieldCheck size={20} className="text-blue-400" /> Mémoriser ce Preset
                 </button>
               )}
-
-                <button
-                  onClick={handleBatchSave}
-                  disabled={savingHabits}
-                  className="flex-1 min-w-[200px] py-5 bg-white text-slate-800 border border-slate-200 rounded-[2.5rem] flex items-center justify-center gap-3 hover:bg-slate-50 transition-all font-black text-xs uppercase tracking-widest shadow-lg shadow-slate-200/50 disabled:opacity-50"
-                  title="Enregistre la fréquence d'utilisation de chaque médicament"
-                >
-                  <Brain size={20} className="text-primary" style={{ color: 'var(--primary)' }} />
-                  {savingHabits ? 'Mémorisation...' : 'Apprendre ces posologies'}
-                </button>
             </div>
 
             {/* CONSEILS AU PATIENT */}

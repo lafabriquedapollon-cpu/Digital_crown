@@ -8,6 +8,15 @@ import { formatLabJobMessage } from '../../../../services/whatsappService';
 import type { Tab, SyncStatus, Snapshot, Appointment, ApptStatus } from '../types';
 import { LabJobStatus } from '../../../../types/labJob';
 
+function resolveApiBaseUrl(stored: string): string {
+  const hostname = window.location.hostname;
+  if (hostname === 'localhost' || hostname === '127.0.0.1') return stored;
+  if (stored.includes('localhost') || stored.includes('127.0.0.1')) {
+    return `${window.location.protocol}//${hostname}:8005`;
+  }
+  return stored;
+}
+
 export function useMobileDashboard() {
   const [activeTab, setActiveTab] = useState<Tab>('agenda');
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle');
@@ -45,6 +54,12 @@ export function useMobileDashboard() {
     document.documentElement.dataset.theme = '';
     document.body.dataset.theme = '';
     const t = setInterval(() => setNow(new Date()), 30000);
+    // Pré-charger le token mobile dans localStorage pour que l'intercepteur api le retrouve
+    MobileStorage.getCredentials().then(creds => {
+      if (creds?.access_token) {
+        try { localStorage.setItem('token', creds.access_token); } catch { /* ignore */ }
+      }
+    });
     return () => clearInterval(t);
   }, []);
 
@@ -55,7 +70,11 @@ export function useMobileDashboard() {
       if (!creds) throw new Error('Non appairé');
       credsRef.current = creds;
 
-      const res = await fetch(`${creds.api_base_url}/api/mobile/snapshot?target_date=${selectedDate}`, {
+      // Sync mobile JWT into localStorage so the standard api interceptor
+      // (used by CrownBotChat and other shared components) sends Authorization headers.
+      try { localStorage.setItem('token', creds.access_token); } catch { /* ignore */ }
+
+      const res = await fetch(`${resolveApiBaseUrl(creds.api_base_url)}/api/mobile/snapshot?target_date=${selectedDate}`, {
         headers: { Authorization: `Bearer ${creds.access_token}` },
         signal: AbortSignal.timeout(8000),
       });
@@ -70,7 +89,8 @@ export function useMobileDashboard() {
       await MobileStorage.saveLastSnapshot(data);
       setError(null);
       setSyncStatus('success');
-    } catch {
+    } catch (err) {
+      console.error('[MobileDashboard] fetchSnapshot failed:', err);
       const cached = await MobileStorage.getLastSnapshot();
       if (cached) { setSnapshot(cached); setSyncStatus('error'); setError('Hors réseau — données en cache'); }
       else { setError('Impossible de joindre le cabinet'); setSyncStatus('error'); }
@@ -81,7 +101,7 @@ export function useMobileDashboard() {
     try {
       const creds = credsRef.current || await MobileStorage.getCredentials();
       if (!creds) return;
-      const res = await fetch(`${creds.api_base_url}/api/mobile/patients`, {
+      const res = await fetch(`${resolveApiBaseUrl(creds.api_base_url)}/api/mobile/patients`, {
         headers: { Authorization: `Bearer ${creds.access_token}` },
         signal: AbortSignal.timeout(5000),
       });
@@ -153,7 +173,7 @@ export function useMobileDashboard() {
     const creds = credsRef.current || await MobileStorage.getCredentials();
     if (!creds) return;
     try {
-      await fetch(`${creds.api_base_url}/api/mobile/appointments/${id}/status`, {
+      await fetch(`${resolveApiBaseUrl(creds.api_base_url)}/api/mobile/appointments/${id}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${creds.access_token}` },
         body: JSON.stringify({ status }),
@@ -163,7 +183,7 @@ export function useMobileDashboard() {
         appointments: prev.appointments.map(a => a.id === id ? { ...a, status } : a),
       } : prev);
     } catch {
-      await MobileStorage.enqueueAction(`${creds.api_base_url}/api/mobile/appointments/${id}/status`, 'PATCH', { status });
+      await MobileStorage.enqueueAction(`${resolveApiBaseUrl(creds.api_base_url)}/api/mobile/appointments/${id}/status`, 'PATCH', { status });
       setQueuedActionsCount(prev => prev + 1);
       toast('Mise à jour mise en attente (hors ligne)', { icon: '🔄' });
       
@@ -179,14 +199,14 @@ export function useMobileDashboard() {
     const creds = credsRef.current || await MobileStorage.getCredentials();
     if (!creds) return;
     try {
-      await fetch(`${creds.api_base_url}/api/mobile/appointments/${id}`, {
+      await fetch(`${resolveApiBaseUrl(creds.api_base_url)}/api/mobile/appointments/${id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${creds.access_token}` }
       });
       fetchSnapshot();
       toast.success("Rendez-vous supprimé");
     } catch (err) {
-      await MobileStorage.enqueueAction(`${creds.api_base_url}/api/mobile/appointments/${id}`, 'DELETE');
+      await MobileStorage.enqueueAction(`${resolveApiBaseUrl(creds.api_base_url)}/api/mobile/appointments/${id}`, 'DELETE');
       setQueuedActionsCount(prev => prev + 1);
       toast('Suppression mise en attente (hors ligne)', { icon: '🔄' });
       setSnapshot(prev => prev ? {
@@ -200,7 +220,7 @@ export function useMobileDashboard() {
     const creds = credsRef.current || await MobileStorage.getCredentials();
     if (!creds) return;
     try {
-      await fetch(`${creds.api_base_url}/api/mobile/appointments/${id}`, {
+      await fetch(`${resolveApiBaseUrl(creds.api_base_url)}/api/mobile/appointments/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${creds.access_token}` },
         body: JSON.stringify({ datetime_start: `${newDate}T${newTime}:00` }),
@@ -208,7 +228,7 @@ export function useMobileDashboard() {
       fetchSnapshot();
       toast.success("Rendez-vous déplacé");
     } catch (err) {
-      await MobileStorage.enqueueAction(`${creds.api_base_url}/api/mobile/appointments/${id}`, 'PATCH', { datetime_start: `${newDate}T${newTime}:00` });
+      await MobileStorage.enqueueAction(`${resolveApiBaseUrl(creds.api_base_url)}/api/mobile/appointments/${id}`, 'PATCH', { datetime_start: `${newDate}T${newTime}:00` });
       setQueuedActionsCount(prev => prev + 1);
       toast('Déplacement mis en attente (hors ligne)', { icon: '🔄' });
     }
@@ -279,7 +299,7 @@ export function useMobileDashboard() {
     try {
       const creds = credsRef.current || await MobileStorage.getCredentials();
       if (!creds) return;
-      const res = await fetch(`${creds.api_base_url}/api/mobile/patients/${patientId}/documents`, {
+      const res = await fetch(`${resolveApiBaseUrl(creds.api_base_url)}/api/mobile/patients/${patientId}/documents`, {
         headers: { Authorization: `Bearer ${creds.access_token}` },
       });
       if (res.ok) {
@@ -318,7 +338,7 @@ export function useMobileDashboard() {
     try {
       const creds = credsRef.current || await MobileStorage.getCredentials();
       if (!creds) return;
-      const res = await fetch(`${creds.api_base_url}/api/mobile/documents/${selectedDocId}/sign`, {
+      const res = await fetch(`${resolveApiBaseUrl(creds.api_base_url)}/api/mobile/documents/${selectedDocId}/sign`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -341,10 +361,8 @@ export function useMobileDashboard() {
   };
 
   const handleLogout = async () => {
-    if (window.confirm('Révoquer cet accès ? La clé sera supprimée de ce téléphone.')) {
-      await MobileStorage.clearAll();
-      window.location.replace('/mobile/onboarding');
-    }
+    await MobileStorage.clearAll();
+    window.location.replace('/mobile/onboarding');
   };
 
   const handleExportPDF = async () => {
@@ -352,7 +370,7 @@ export function useMobileDashboard() {
     if (!creds) return;
     try {
       const d = new Date(selectedDate);
-      const res = await fetch(`${creds.api_base_url}/api/mobile/accounting/export-pdf?year=${d.getFullYear()}&month=${d.getMonth() + 1}`, {
+      const res = await fetch(`${resolveApiBaseUrl(creds.api_base_url)}/api/mobile/accounting/export-pdf?year=${d.getFullYear()}&month=${d.getMonth() + 1}`, {
         headers: { Authorization: `Bearer ${creds.access_token}` },
       });
       if (!res.ok) throw new Error('Erreur export');

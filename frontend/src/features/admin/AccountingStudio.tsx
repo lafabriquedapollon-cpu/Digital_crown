@@ -47,6 +47,7 @@ interface AccountingStudioProps {
   isDevis?: boolean;
   patientId: string;
   coherenceWarnings?: CoherenceWarning[];
+  validationErrors?: { message: string }[];
   setSelectedTeethFromOdontogram: (teeth: SelectedSurfaceData[]) => void;
 }
 
@@ -55,6 +56,7 @@ export const AccountingStudio: React.FC<AccountingStudioProps> = ({
   isDevis = false,
   patientId,
   coherenceWarnings = [],
+  validationErrors = [],
   setSelectedTeethFromOdontogram,
 }) => {
   const {
@@ -236,7 +238,7 @@ export const AccountingStudio: React.FC<AccountingStudioProps> = ({
         newItems.push(...autres);
     }
 
-    props.setItems(newItems);
+    setItems(newItems);
     toast.success("Séquençage IA appliqué au devis !");
   };
 
@@ -353,7 +355,7 @@ export const AccountingStudio: React.FC<AccountingStudioProps> = ({
               key={i}
               onClick={(e) => {
                 e.stopPropagation();
-                props.setItems([...items.filter(it => it.description.trim()), { id: Date.now()+i, description: act.name, price: act.price, dent: '-', category: act.category }]);
+                setItems([...items.filter(it => it.description.trim()), { id: Date.now()+i, description: act.name, price: act.price, dent: '-', category: act.category }]);
                 saveActAsHabit(act.name, act.price, act.category);
               }}
               className="px-4 py-2 bg-white hover:bg-slate-50 border border-slate-100 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-600 transition-all flex items-center gap-2 shadow-sm hover:border-primary/30"
@@ -398,7 +400,7 @@ export const AccountingStudio: React.FC<AccountingStudioProps> = ({
                       newItems.push({ id: Date.now() + Math.random(), description: b.name, price: b.price, dent: '-', category: b.category });
                     }
                   });
-                  props.setItems(newItems);
+                  setItems(newItems);
                   setSuggestedBundles([]);
                   toast.success("Intelligence appliquée");
                 }}
@@ -470,7 +472,7 @@ export const AccountingStudio: React.FC<AccountingStudioProps> = ({
                             "px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all",
                             odontogramMode === mode ? "bg-white text-slate-900 shadow-sm border border-slate-100" : "text-slate-400 hover:text-slate-600"
                           )}
-                        >{mode === 'individual' ? 'Soins Ciblés (1 Dent)' : mode === 'group' ? 'Ponts & Prothèses' : 'Soins Généraux'}</button>
+                        >{mode === 'individual' ? 'Soins Ciblés (1 Dent)' : mode === 'group' ? 'Bridge & Prothèses' : 'Soins Généraux'}</button>
                       ))}
                     </div>
 
@@ -538,7 +540,7 @@ export const AccountingStudio: React.FC<AccountingStudioProps> = ({
                                       key={act.name} 
                                       onClick={() => {
                                         const price = PriceBrain.suggestPrice(act.name) || act.price;
-                                        props.setItems([...items, { id: Date.now() + Math.random(), description: act.name, dent: 'Global', price, category: act.category }]);
+                                        setItems([...items, { id: Date.now() + Math.random(), description: act.name, dent: 'Global', price, category: act.category }]);
                                         toast.success(`Ajouté : ${act.name}`, {
                                           style: { background: '#fff', color: '#1e293b', fontSize: '10px', fontWeight: 'bold', border: '1px solid #f1f5f9' }
                                         });
@@ -604,7 +606,7 @@ export const AccountingStudio: React.FC<AccountingStudioProps> = ({
                                            setGroupTreatmentName(act);
                                            setGroupTreatmentPrice(price);
                                            const sorted = [...groupSelectedTeeth].sort((a, b) => a - b);
-                                           props.setItems([...items, { id: Date.now() + Math.random(), description: act, dent: sorted.join('-'), price: Number(price), toothNumbers: sorted }]);
+                                           setItems([...items, { id: Date.now() + Math.random(), description: act, dent: sorted.join('-'), price: Number(price), toothNumbers: sorted }]);
                                            selectTeethGroup('none');
                                            setGroupTreatmentName('');
                                            setGroupTreatmentPrice('');
@@ -666,7 +668,7 @@ export const AccountingStudio: React.FC<AccountingStudioProps> = ({
                               PriceBrain.recordAct(t.name, t.price, t.category, t.id);
                             }
                           });
-                          props.setItems(newItems);
+                          setItems(newItems);
                           setActiveTooth(null);
                         }}
                         onCancel={() => setActiveTooth(null)}
@@ -695,7 +697,7 @@ export const AccountingStudio: React.FC<AccountingStudioProps> = ({
              <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-500">Détail des prestations</h3>
           </div>
           <div className="flex items-center gap-4">
-            {props.isDevis && props.items.length > 0 && (
+            {isDevis && items.length > 0 && (
                <button
                  onClick={handleAIPhaseSequencing}
                  className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-500/10 text-indigo-500 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-indigo-500/20 transition-all"
@@ -742,7 +744,6 @@ export const AccountingStudio: React.FC<AccountingStudioProps> = ({
                           onChange={(e) => {
                             const val = e.target.value;
                             handleActSearch(val, item.id);
-                            if (idx === items.length - 1 && !item.description && val.trim()) addEmptyRow();
                           }}
                           onBlur={() => setTimeout(() => setActiveActSearchId(null), 200)}
                           placeholder="Rechercher ou saisir un acte..."
@@ -904,7 +905,7 @@ export const AccountingStudio: React.FC<AccountingStudioProps> = ({
                 {['Espèces', 'Chèque', 'TPE', 'Virement'].map((m) => (
                   <button
                     key={m}
-                    onClick={() => setPaymentMode(m)}
+                    onClick={() => setPaymentMode(m as any)}
                     className={cn(
                       "flex-1 px-4 py-3.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap",
                       paymentMode === m ? "bg-white text-slate-800 shadow-sm border border-slate-100" : "text-slate-400 hover:text-slate-600"
@@ -1005,8 +1006,13 @@ export const AccountingStudio: React.FC<AccountingStudioProps> = ({
                onClick={() => setIsTreasuryModalOpen(false)}
                className="w-full sm:w-auto px-8 py-3 bg-slate-100 text-slate-500 rounded-xl font-black uppercase tracking-widest hover:bg-slate-200 transition-all text-xs"
              >Fermer</button>
-             <button 
-               onClick={() => setIsTreasuryModalOpen(false)}
+             <button
+               onClick={() => {
+                 setIsTreasuryModalOpen(false);
+                 setGroupSelectedTeeth([]);
+                 setOdontogramMode('individual');
+                 setItems([{ id: Date.now(), description: '', dent: '0', price: 0 }]);
+               }}
                className="w-full sm:w-auto px-8 py-3 bg-primary text-white rounded-xl font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all text-xs"
              >Valider la Caisse</button>
           </div>

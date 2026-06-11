@@ -59,9 +59,11 @@ interface PatientDetails {
   assurance?: string;
 }
 
+export type HubDocumentType = 'plan' | 'ordonnance' | 'certificat' | 'devis' | 'honoraires' | 'echeancier' | 'libre' | 'ai';
+
 export const DocumentHub: React.FC<DocumentHubProps> = ({ patientId, patientName, editData }) => {
   // --- ÉTATS GÉNÉRAUX ---
-  const [activeTab, setActiveTab] = useState<DocumentType>('ordonnance');
+  const [activeTab, setActiveTab] = useState<HubDocumentType>('ordonnance');
   const [docDate, setDocDate] = useState(new Date().toISOString().split('T')[0]);
   const [patientDetails, setPatientDetails] = useState<PatientDetails | null>(null);
   const [sideStudioType, setSideStudioType] = useState<'NONE' | 'PREVIEW'>('NONE');
@@ -73,6 +75,7 @@ export const DocumentHub: React.FC<DocumentHubProps> = ({ patientId, patientName
 
   // --- ÉTATS FORMULAIRES ---
   const [drugs, setDrugs] = useState<DrugItem[]>([{ id: 1, name: '', dosage: '', forme: '', posologie: '', type: 'MEDICAMENT' }]);
+  const [showLegalAnnotations, setShowLegalAnnotations] = useState(true);
   const [certifType, setCertifType] = useState('Repos médical');
   const [certifDays, setCertifDays] = useState(5);
   const [certifCustomMotif, setCertifCustomMotif] = useState('');
@@ -115,10 +118,10 @@ export const DocumentHub: React.FC<DocumentHubProps> = ({ patientId, patientName
   const [insights, setInsights] = useState<Insight[]>([]);
 
   // --- GARDES NAVIGATION ---
-  const [pendingTab, setPendingTab] = useState<DocumentType | null>(null);
+  const [pendingTab, setPendingTab] = useState<HubDocumentType | null>(null);
 
   // Garde sur changement d'onglet (1.3)
-  const handleTabChange = (newTab: DocumentType) => {
+  const handleTabChange = (newTab: HubDocumentType) => {
     const hasUnsaved = (activeTab === 'devis' || activeTab === 'honoraires') &&
       items.some(i => i.description.trim()) && newTab !== activeTab;
     if (hasUnsaved) {
@@ -144,16 +147,37 @@ export const DocumentHub: React.FC<DocumentHubProps> = ({ patientId, patientName
   const [selectedTeethFromOdontogram, setSelectedTeethFromOdontogram] = useState<SelectedSurfaceData[]>([]);
 
   // --- HOOK GÉNÉRATEUR (Phases 1, 3, 4) ---
+  const handleSuggestRadio = useCallback(() => {
+    toast((t) => (
+      <div className="flex flex-col gap-2">
+        <span className="font-semibold text-sm">Ordonnance radio recommandée</span>
+        <span className="text-xs text-slate-500">Un acte prothétique a été détecté. Souhaitez-vous créer une ordonnance radiologique ?</span>
+        <div className="flex gap-2 mt-1">
+          <button
+            onClick={() => { setActiveTab('ordonnance'); toast.dismiss(t.id); }}
+            className="px-3 py-1 bg-blue-600 text-white text-xs rounded-lg font-semibold hover:bg-blue-700"
+          >
+            Créer l'ordonnance
+          </button>
+          <button onClick={() => toast.dismiss(t.id)} className="px-3 py-1 bg-slate-100 text-slate-600 text-xs rounded-lg hover:bg-slate-200">
+            Ignorer
+          </button>
+        </div>
+      </div>
+    ), { duration: 12000, icon: '🦷' });
+  }, [setActiveTab]);
+
   const generatorParams = useMemo(() => ({
     patientId, patientDetails, activeTab, drugs, certifType, certifDays, certifCustomMotif,
     items, paymentMode, libreTitle, libreContent, libreCustomPatient, libreCustomDate,
     libreHideHeader, librePageSize, libreAlignment, docDate, selectedTeethFromOdontogram, smartSuggestion,
-    installments, isAccounted, paymentStatus, isGlobalNote,
+    installments, isAccounted, paymentStatus, isGlobalNote, onSuggestRadio: handleSuggestRadio,
+    showLegalAnnotations,
   }), [
     patientId, patientDetails, activeTab, drugs, certifType, certifDays, certifCustomMotif,
     items, paymentMode, libreTitle, libreContent, libreCustomPatient, libreCustomDate,
     libreHideHeader, librePageSize, libreAlignment, docDate, selectedTeethFromOdontogram, smartSuggestion,
-    installments, isAccounted, paymentStatus, isGlobalNote,
+    installments, isAccounted, paymentStatus, isGlobalNote, handleSuggestRadio, showLegalAnnotations,
   ]);
 
   // --- INTELLIGENCE SCOPE ---
@@ -463,6 +487,27 @@ export const DocumentHub: React.FC<DocumentHubProps> = ({ patientId, patientName
           )}
 
           {activeTab === 'ordonnance' && (
+            <>
+            <div className="flex items-center gap-2 mb-3 px-1">
+              <button
+                type="button"
+                onClick={() => setShowLegalAnnotations(v => !v)}
+                className={cn(
+                  "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none",
+                  showLegalAnnotations ? "bg-primary" : "bg-slate-200"
+                )}
+                role="switch"
+                aria-checked={showLegalAnnotations}
+              >
+                <span className={cn(
+                  "pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200",
+                  showLegalAnnotations ? "translate-x-4" : "translate-x-0"
+                )} />
+              </button>
+              <span className="text-[10px] font-bold text-text-muted uppercase tracking-widest">
+                Mentions légales (Radioprotection)
+              </span>
+            </div>
             <PrescriptionAgenticStudio
               patientId={patientId || '0'}
               drugs={drugs}
@@ -481,6 +526,7 @@ export const DocumentHub: React.FC<DocumentHubProps> = ({ patientId, patientName
               hasChanges={generator.hasChanges}
               coherenceWarnings={generator.coherenceWarnings}
             />
+            </>
           )}
 
           {activeTab === 'certificat' && (
@@ -513,57 +559,10 @@ export const DocumentHub: React.FC<DocumentHubProps> = ({ patientId, patientName
           {(activeTab === 'devis' || activeTab === 'honoraires') && (
             <AccountingStudio
               isDevis={activeTab === 'devis'}
-                    .map(a => ({
-                      id: `brain_${a.name}`,
-                      name: a.name,
-                      base_price: a.price,
-                      category: a.category,
-                      isLocal: true,
-                      is_habit: true
-                    }));
-
-                  // Merge and deduplicate by name
-                  const merged: any[] = [...localBrainMatches];
-                  
-                  // Priorité 1 : Habits de l'API
-                  apiMatches.filter((a: any) => a.is_habit).forEach((a: any) => {
-                    if (!merged.find(x => x.name.toLowerCase() === a.name.toLowerCase())) {
-                      merged.push({ ...a, isLocal: false });
-                    }
-                  });
-
-                  // Priorité 2 : Local Templates
-                  localMatches.forEach((m: any) => {
-                    if (!merged.find(x => x.name.toLowerCase() === m.name.toLowerCase())) {
-                      merged.push(m);
-                    }
-                  });
-
-                  // Priorité 3 : Reste du catalogue API
-                  apiMatches.filter((a: any) => !a.is_habit).forEach((a: any) => {
-                    if (!merged.find(x => x.name.toLowerCase() === a.name.toLowerCase())) {
-                      merged.push({ ...a, isLocal: false });
-                    }
-                  });
-                  
-                  setActSuggestions(merged.slice(0, 10));
-                } catch {
-                  setActSuggestions(localMatches.slice(0, 10));
-                }
-              }}
-              activeActSearchId={activeActSearchId}
-              setActiveActSearchId={setActiveActSearchId}
-              actSuggestions={actSuggestions}
-              applyActSuggestion={(id, act) => {
-                setItems(items.map(i => i.id === id ? { ...i, description: act.name, price: act.base_price || 0, category: act.category } : i));
-                // Apprentissage immédiat si prix dispo
-                if (act.name && act.base_price > 0) {
-                  PriceBrain.recordAct(act.name, act.base_price, act.category || 'CONSERVATRICE');
-                }
-                setActSuggestions([]);
-                setActiveActSearchId(null);
-              }}
+              patientId={patientId || '0'}
+              coherenceWarnings={generator.coherenceWarnings}
               validationErrors={generator.validationErrors}
+              setSelectedTeethFromOdontogram={setSelectedTeethFromOdontogram}
             />
           )}
 
@@ -660,7 +659,8 @@ export const DocumentHub: React.FC<DocumentHubProps> = ({ patientId, patientName
                 'devis': 'Devis Quantitatif',
                 'honoraires': 'Note d\'Honoraires',
                 'echeancier': 'Échéancier',
-                'libre': 'Document Libre'
+                'libre': 'Document Libre',
+                'ai': 'Assistant IA'
               }[activeTab] || activeTab.toUpperCase()}
             />
           </motion.div>

@@ -44,7 +44,7 @@ interface SetupState {
   setContacts: (contacts: ContactConfig | ((prev: ContactConfig) => ContactConfig)) => void;
   setHeaderOption: (option: HeaderOption) => void;
   setSelectedTemplate: (template: TemplateOption) => void;
-  setSelectedTheme: (theme: 'elite' | 'emerald' | 'rose' | 'prestige' | string) => void;
+  setSelectedThemeAndPersist: (theme: 'elite' | 'emerald' | 'rose' | 'prestige' | string) => void;
   setSelectedIdentity: (id: string) => void;
   setSelectedFont: (font: string) => void;
   setMargins: (margins: { top: number; bottom: number } | ((prev: { top: number; bottom: number }) => { top: number; bottom: number })) => void;
@@ -107,7 +107,7 @@ export const useSetupStore = create<SetupState>()(
       setContacts: (val) => set((state) => ({ contacts: typeof val === 'function' ? val(state.contacts) : val })),
       setHeaderOption: (headerOption) => set({ headerOption }),
       setSelectedTemplate: (selectedTemplate) => set({ selectedTemplate }),
-      setSelectedTheme: (selectedTheme) => {
+      setSelectedThemeAndPersist: (selectedTheme) => {
         localStorage.setItem('digitalcrown_theme', selectedTheme);
         set({ selectedTheme: selectedTheme as any });
       },

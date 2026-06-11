@@ -39,7 +39,7 @@ export const SetupWizard: React.FC = () => {
     contacts, setContacts,
     headerOption, setHeaderOption,
     selectedTemplate, setSelectedTemplate,
-    selectedTheme, setSelectedTheme,
+    selectedTheme, setSelectedThemeAndPersist,
     selectedIdentity, setSelectedIdentity,
     selectedFont, setSelectedFont,
     margins, setMargins,
@@ -275,7 +275,7 @@ export const SetupWizard: React.FC = () => {
             {currentStep === 3 && <Step3Contacts contacts={contacts} setContacts={setContacts} identity={identity} setIdentity={setIdentity} errors={errors} />}
             {currentStep === 4 && <StepQR qrConfig={qrConfig} setQrConfig={setQrConfig} />}
             {currentStep === 5 && <Step5Design headerOption={headerOption} setHeaderOption={setHeaderOption} selectedIdentity={selectedIdentity} setSelectedIdentity={setSelectedIdentity} selectedFont={selectedFont} setSelectedFont={setSelectedFont} selectedTemplate={selectedTemplate} setSelectedTemplate={setSelectedTemplate} logoPreview={logoPreview} letterheadPreview={letterheadPreview} logoInputRef={logoInputRef} letterheadInputRef={letterheadInputRef} handleLogoChange={handleLogoChange} handleLetterheadChange={handleLetterheadChange} margins={margins} setMargins={setMargins} headerScale={headerScale} setHeaderScale={setHeaderScale} advanced={{ headerFontScale, setHeaderFontScale, headerLogoScale, setHeaderLogoScale, headerLineHeight, setHeaderLineHeight, footerFontScale, setFooterFontScale, footerQrScale, setFooterQrScale, footerLineHeight, setFooterLineHeight }} />}
-            {currentStep === 6 && <Step6Theme selectedTheme={selectedTheme} setSelectedTheme={setSelectedTheme} />}
+            {currentStep === 6 && <Step6Theme selectedTheme={selectedTheme} setSelectedThemeAndPersist={setSelectedThemeAndPersist} />}
             {currentStep === 7 && <Step7Confirmation identity={identity} specialtyStrings={specialtyStrings} contactString={contactString} selectedFont={selectedFont} selectedIdentity={selectedIdentity} selectedTheme={selectedTheme} qrConfig={qrConfig} errors={errors} />}
 
             <div className="mt-16 pt-10 border-t border-border-main flex items-center justify-between">

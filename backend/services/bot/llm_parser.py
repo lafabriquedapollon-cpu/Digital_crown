@@ -47,12 +47,20 @@ Exemple de sortie :
 {"intent": "CREATE_APPOINTMENT", "entities": {"patient_name": "Bennani", "date": "demain", "motif": "carie", "tooth": ""}}
 """
 
-    def parse(self, message: str) -> ParsedIntent:
+    def parse(self, message: str, context: list | None = None) -> ParsedIntent:
         from backend.services.security.data_sanitizer import data_sanitizer
-        
-        # 1. Anonymisation
+
+        # 1. Anonymisation du message courant
         sanitized_message, mapping = data_sanitizer.sanitize(message)
-        
+
+        # 2. Construire les messages LLM avec contexte conversationnel sanitizé
+        messages: list = [{"role": "system", "content": self.system_prompt}]
+        for turn in (context or []):
+            role = "assistant" if turn.get("role") == "bot" else "user"
+            sanitized_content, _ = data_sanitizer.sanitize(turn.get("content", ""))
+            messages.append({"role": role, "content": sanitized_content})
+        messages.append({"role": "user", "content": sanitized_message})
+
         try:
             with httpx.Client(timeout=self.timeout) as client:
                 response = client.post(
@@ -60,10 +68,7 @@ Exemple de sortie :
                     headers={"Authorization": f"Bearer {self.api_key}"},
                     json={
                         "model": self.model,
-                        "messages": [
-                            {"role": "system", "content": self.system_prompt},
-                            {"role": "user", "content": sanitized_message}
-                        ],
+                        "messages": messages,
                         "temperature": 0.0,
                         "response_format": {"type": "json_object"}
                     }
@@ -87,9 +92,10 @@ Exemple de sortie :
                         entities[key] = data_sanitizer.restore(val, mapping)
                         
                 intent_str = parsed_json.get("intent", "UNKNOWN")
-                
+                entities = self._normalize_entities(entities)
+
                 logger.info(f"LLM parsed intent: {intent_str} with entities: {entities}")
-                
+
                 return ParsedIntent(
                     intent=intent_str,
                     confidence=0.9,
@@ -102,6 +108,15 @@ Exemple de sortie :
                 
         except Exception as e:
             logger.warning(f"LLM parsing failed ({e}). Fallback to Regex.")
-            return self.fallback_parser.parse(message)
+            return self.fallback_parser.parse(message, context=context)
+
+    def _normalize_entities(self, entities: dict) -> dict:
+        """Aligne les clés LLM sur le schéma attendu par l'ActionDispatcher."""
+        key_map = {
+            "date": "target_date",
+            "tooth": "tooth_number",
+        }
+        return {key_map.get(k, k): v for k, v in entities.items() if v}
+
 
 llm_parser = LLMIntentParser()

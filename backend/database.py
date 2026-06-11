@@ -49,8 +49,8 @@ if SQLALCHEMY_DATABASE_URL.startswith("sqlite"):
                 if conn_test:
                     try:
                         conn_test.close()
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logger.debug(f"Could not close test connection: {e}")
             
             # Si elle est lisible en clair, on effectue la migration vers SQLCipher
             if is_plaintext:
@@ -120,10 +120,11 @@ if "pysqlcipher" in SQLALCHEMY_DATABASE_URL or SQLALCHEMY_DATABASE_URL.startswit
 else:
     engine = create_engine(
         SQLALCHEMY_DATABASE_URL,
-        pool_size=20,
-        max_overflow=10,
+        pool_size=10,
+        max_overflow=5,
         pool_timeout=30,
         pool_recycle=1800,
+        pool_pre_ping=True,
     )
 
 SessionLocal = sessionmaker(

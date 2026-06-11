@@ -97,6 +97,7 @@ def make_user(db, email=None, password="TestPass123!", role="DENTISTE", active=T
         role=role,
         nom_complet="Dr. Test",
         is_active=active,
+        is_licensed=True,
     )
     db.add(user)
     db.commit()

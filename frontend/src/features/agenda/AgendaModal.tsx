@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Clock, User, FileText, Search, Plus, Check, MessageCircle, Calendar, Sparkles, AlertCircle, ArrowRight, Trash2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { X, Clock, User, FileText, Search, Plus, Check, MessageCircle, Calendar, Sparkles, AlertCircle, ArrowRight, Trash2, Ghost } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { api } from '../../services/api';
 import type { AppointmentStatus } from './DailyView';
@@ -33,6 +34,7 @@ interface AgendaModalProps {
 }
 
 export const AgendaModal: React.FC<AgendaModalProps> = ({ isOpen, onClose, onSaved, selectedDate, initialTime, editingAppointment }) => {
+  const navigate = useNavigate();
   const { fetchPatientIntelligence, fetchSuggestedAppointment, suggestedAppointment, isLoading: isLoadingSuggested } = useEliteStore();
   const [patientSearch, setPatientSearch] = useState('');
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
@@ -54,9 +56,14 @@ export const AgendaModal: React.FC<AgendaModalProps> = ({ isOpen, onClose, onSav
   const [dateValue, setDateValue] = useState('');
   const [smartIntel, setSmartIntel] = useState<any>(null);
   const [loadingIntel, setLoadingIntel] = useState(false);
+  const [showGhostPanel, setShowGhostPanel] = useState(false);
   
   const protocol = useClinicalRef(selectedAct?.name || actSearch);
   const [showClinicalRef, setShowClinicalRef] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) setShowGhostPanel(false);
+  }, [isOpen]);
 
   useEffect(() => {
     if (protocol) {
@@ -119,23 +126,19 @@ export const AgendaModal: React.FC<AgendaModalProps> = ({ isOpen, onClose, onSav
   }, [patientSearch, selectedPatient]);
 
   useEffect(() => {
-    if (selectedPatient) {
+    if (selectedPatient && showGhostPanel) {
       setLoadingIntel(true);
-      // 1. Récupération des suggestions d'agenda locales
       api.get(`/patients/${selectedPatient.id}/appointment-intel`)
         .then(res => setSmartIntel(res.data))
         .catch(e => console.error(e))
         .finally(() => setLoadingIntel(false));
-      
-      // 2. Synchronisation globale avec le Ghost Hub Brain
       fetchPatientIntelligence(selectedPatient.id).catch(e => console.error(e));
-
-      // 3. Smart Booking : fetch la suggestion clinique
       fetchSuggestedAppointment(selectedPatient.id).catch(e => console.error(e));
-    } else {
+    } else if (!selectedPatient) {
       setSmartIntel(null);
+      setShowGhostPanel(false);
     }
-  }, [selectedPatient, fetchPatientIntelligence, fetchSuggestedAppointment]);
+  }, [selectedPatient, showGhostPanel, fetchPatientIntelligence, fetchSuggestedAppointment]);
 
   const applySmartIntel = () => {
     if (smartIntel) {
@@ -313,9 +316,12 @@ export const AgendaModal: React.FC<AgendaModalProps> = ({ isOpen, onClose, onSav
                       <span>{selectedPatient.nom} {selectedPatient.prenom}</span>
                       <span className="text-[10px] bg-blue-200 px-1.5 py-0.5 rounded text-blue-700">{selectedPatient.numero_dossier}</span>
                     </div>
-                    <button type="button" onClick={() => setSelectedPatient(null)} className="text-blue-400 hover:text-rose-500 transition-colors">
-                      <X size={18} />
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button type="button" onClick={() => { onClose(); navigate(`/patients/${selectedPatient.id}/edit`); }} className="text-[9px] font-black text-blue-400 hover:text-blue-600 uppercase tracking-widest transition-colors">Modifier</button>
+                      <button type="button" onClick={() => setSelectedPatient(null)} className="text-blue-400 hover:text-rose-500 transition-colors">
+                        <X size={18} />
+                      </button>
+                    </div>
                   </div>
                 ) : (
                   <>
@@ -351,13 +357,24 @@ export const AgendaModal: React.FC<AgendaModalProps> = ({ isOpen, onClose, onSav
                   )) : (
                     <div className="p-6 text-center">
                       <p className="text-sm text-slate-400 font-bold mb-2">Aucun patient trouvé</p>
-                      <button type="button" onClick={() => setShowPatientResults(false)} className="text-xs text-blue-500 font-black uppercase tracking-widest">Créer Patient Externe</button>
+                      <button type="button" onClick={() => { setShowPatientResults(false); onClose(); navigate('/patients/new'); }} className="text-xs text-blue-500 font-black uppercase tracking-widest">Créer Patient Externe</button>
                     </div>
                   )}
                 </div>
               )}
+              {/* BOUTON GHOST INTELLIGENCE - ON DEMAND */}
+              {selectedPatient && !showGhostPanel && (
+                <button
+                  type="button"
+                  onClick={() => setShowGhostPanel(true)}
+                  className="mt-3 flex items-center gap-2 px-3 py-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all text-[10px] font-black uppercase tracking-widest"
+                >
+                  <Ghost size={13} /> Ghost Intelligence
+                </button>
+              )}
+
               {/* SMART INTEL CARD (GHOST ELITE INTELLIGENCE HUB) */}
-              {(selectedPatient && (smartIntel || suggestedAppointment || loadingIntel || isLoadingSuggested)) && (
+              {(selectedPatient && showGhostPanel && (smartIntel || suggestedAppointment || loadingIntel || isLoadingSuggested)) && (
                 <div className="mt-6 p-5 bg-gradient-to-br from-slate-50 to-blue-50/20 border border-slate-100 rounded-[2rem] shadow-sm animate-in slide-in-from-top-4 duration-300">
                   <div className="flex justify-between items-center mb-4 pb-3 border-b border-slate-100">
                     <div className="flex items-center gap-2 text-[#003380]">
@@ -466,7 +483,6 @@ export const AgendaModal: React.FC<AgendaModalProps> = ({ isOpen, onClose, onSav
                     <div className="flex items-center gap-2">
                       <FileText className="absolute left-4 text-emerald-500" size={20} />
                       <span>{selectedAct.name}</span>
-                      <span className="text-[10px] bg-emerald-200 px-1.5 py-0.5 rounded text-emerald-700">{selectedAct.base_price} MAD</span>
                     </div>
                     <button type="button" onClick={() => setSelectedAct(null)} className="text-emerald-400 hover:text-rose-500 transition-colors">
                       <X size={18} />
@@ -500,7 +516,6 @@ export const AgendaModal: React.FC<AgendaModalProps> = ({ isOpen, onClose, onSav
                       <div className="text-left">
                         <div className="text-sm font-black text-slate-700">{act.name}</div>
                       </div>
-                      <div className="text-xs font-black text-emerald-600">{act.base_price} MAD</div>
                     </button>
                   ))}
                 </div>

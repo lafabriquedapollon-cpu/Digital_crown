@@ -61,9 +61,10 @@ export const StudioControls: React.FC<StudioControlsProps> = ({ profile, updateP
       
       {/* 1. PALETTE */}
       <div className="bg-[var(--card-bg)] border border-[var(--border-color)] rounded-2xl p-6 transition-shadow hover:shadow-[0_8px_24px_-16px_rgba(11,15,23,0.18)] hover:-translate-y-[2px]">
-        <h3 className="font-bold text-[11px] text-[var(--text-muted)] tracking-[0.12em] uppercase mb-5">
+        <h3 className="font-bold text-[11px] text-[var(--text-muted)] tracking-[0.12em] uppercase mb-2">
           Palette
         </h3>
+        <p className="text-[10px] text-slate-400 mb-4">Ces couleurs s'appliquent à l'application et aux documents générés.</p>
         <div className="grid grid-cols-2 gap-3">
           {BRAND_IDENTITIES.map(palette => {
             const isSelected = profile.primary_color === palette.primary;

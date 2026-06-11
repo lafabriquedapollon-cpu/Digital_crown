@@ -3,10 +3,9 @@ import { CrownBotChat } from '../../../../components/CrownBot/CrownBotChat';
 
 export function BotView() {
   return (
-    <div className="h-full bg-slate-50 flex flex-col">
-      <div className="flex-1 overflow-hidden relative">
-        <CrownBotChat />
-      </div>
+    // Negative margin to escape parent px-6 padding, giving bot full width
+    <div className="-mx-6 h-[calc(100dvh-180px)] flex flex-col overflow-hidden">
+      <CrownBotChat />
     </div>
   );
 }

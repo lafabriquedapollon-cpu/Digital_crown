@@ -1,38 +1,37 @@
-# STATE — Digital Crown
+# STATE — DigitalCrown
 
 > Fichier de reprise (handoff). **Lis-moi en premier** pour savoir où on en est.
-> Le bloc AUTO ci-dessous est régénéré automatiquement à chaque fin de session par le hook : ne l'édite pas à la main.
+> Le bloc AUTO ci-dessous est régénéré automatiquement à chaque fin de session : ne l'édite pas à la main.
 > Les sections plus bas sont à toi (l'agent) : tiens-les à jour avant de t'arrêter.
 
 <!-- STATE:AUTO:START -->
 ## Dernière session (auto — ne pas éditer à la main)
-- **Mis à jour :** Initialisation
-- **Branche :** `inconnue`
-- **Worktree :** `inconnu`
+- **Mis à jour :** 2026-06-11 15:06
+- **Branche :** `crownbot`
+- **Worktree :** `C:/Users/lenovo/Documents/Cabinet/DigitalCrown`
 
 ### Fichiers touchés
 - _(aucun fichier modifié détecté)_
 
 ### Dernières demandes
-- _(rien à extraire)_
+- quand je me connecte avec mon mobile depuis le qrcode ça marche pas laisse tout ça de coté on a plein de choses à modifier !
+- att j'ai eu ça en fermant le backend INFO: Finished server process [20316] Traceback (most recent call last): File "<string>", line 1, in <module> File "C:\User
+- on m'a écrit safari ne peut pas ouvrir la page car aucune connexion sécurisée au serveur n'a pu etre établie
+- ça marche ! regarde ce qu'il y a a corriger maintenant ! ORDONNANCE smart saisie elle doit accepter quelques fautes de frappes ! quand j'appuie sur KIN bain de 
+- This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary:
+- le bot sur la versoin mobile ne marche pas ! !
+- vérifier s'il n'y a pas de données qui fuitent vers le LLM parce que normalement, l'idée c'était de construire un mur entre le LLM et les données et tout. Essay
+- This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation. Summary:
 <!-- STATE:AUTO:END -->
 
-## Historique de Session (Antigravity)
-- **Fichiers modifiés** : 
-  - `frontend/src/features/admin/SetupWizard/SetupWizard.tsx`
-  - `frontend/src/features/admin/Settings/types.ts`
-  - `frontend/src/features/admin/Settings/hooks/useSettingsStore.ts`
-  - `frontend/src/features/admin/Settings/tabs/ProfileTab.tsx`
-- **Dernière action** : Correction des failles de synchronisation (ajout du `cabinet_type` et réparation du bug destructeur de la Spécialité Personnalisée).
-
 ## Prochaine action
-- Attendre ton feu vert pour tester l'interface ou explorer d'autres optimisations.
+- _(à remplir : la toute prochaine chose concrète à faire)_
 
 ## Blocker / en attente
-- Aucun.
+- _(ce qui empêche d'avancer, dépendances externes, décisions en suspens)_
 
 ## Décisions prises
-- Refactorisation via un store Zustand dédié (`useSetupStore`) avec le middleware `persist` (sur le sessionStorage) pour garantir la reprise du wizard après un `F5` sans conserver les données à vie.
+- _(choix d'archi/produit + le « pourquoi », pour ne pas les rediscuter)_
 
 ## Questions ouvertes
-- Souhaites-tu que je règle immédiatement le problème de synchronisation (le bug de la Spécialité Personnalisée effacée dans les Réglages) ?
+- _(ce qui reste flou et qu'il faut trancher)_

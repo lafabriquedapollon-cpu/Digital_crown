@@ -5,8 +5,6 @@ import { cabinetApi } from '../services/templateApi';
 import { api } from '../services/api';
 import { safeStorage } from '../hooks/useLocalStorage';
 import { useAuthStore } from '../stores/useAuthStore';
-import { GuideTower } from './GuidedTour/GuideTower';
-import { EliteAssistant } from '../features/admin/DocumentStudio/EliteAssistant';
 import { authService } from '../services/auth';
 
 export const Header = () => {
@@ -117,11 +115,6 @@ export const Header = () => {
             <Shield size={20} />
           </Link>
         )}
-
-        <GuideTower />
-        <div className="relative">
-          <EliteAssistant isEmbedded={true} />
-        </div>
 
         <Link to="/settings" className="p-2.5 text-text-muted hover:text-primary hover:bg-primary/5 rounded-elite-sm transition-elite" title="Réglages">
           <Settings size={20} />

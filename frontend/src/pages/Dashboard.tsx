@@ -115,6 +115,8 @@ export const Dashboard: React.FC = () => {
   const [isMobileModalOpen, setIsMobileModalOpen] = useState(false);
   const [isSearchExpanded, setIsSearchExpanded] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
   const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
   
   // Ghost Secrétariat (To-Do List Magique)
@@ -253,12 +255,24 @@ export const Dashboard: React.FC = () => {
     }
   };
 
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchQuery.trim()) {
-      // Naviguer vers la liste avec paramètre search
-      navigate(`/patients?search=${encodeURIComponent(searchQuery)}`);
+  const handleSearchChange = async (value: string) => {
+    setSearchQuery(value);
+    if (!value.trim()) { setSearchResults([]); return; }
+    setSearchLoading(true);
+    try {
+      const res = await api.get(`/patients/?search=${encodeURIComponent(value.trim())}&limit=6`);
+      setSearchResults(res.data || []);
+    } catch {
+      setSearchResults([]);
+    } finally {
+      setSearchLoading(false);
     }
+  };
+
+  const handleSearchClose = () => {
+    setIsSearchExpanded(false);
+    setSearchQuery('');
+    setSearchResults([]);
   };
 
   if (loading) return <EliteGhostLoader text="Initialisation de votre cabinet..." />;
@@ -285,21 +299,51 @@ export const Dashboard: React.FC = () => {
           {/* Barre de Recherche rapide */}
           <div className="relative flex items-center">
             {isSearchExpanded ? (
-              <form onSubmit={handleSearchSubmit} className="absolute right-0 flex items-center bg-white dark:bg-slate-800 border border-border-main rounded-full px-2 py-1 shadow-elite animate-in fade-in slide-in-from-right-4 w-64 z-20">
-                <Search size={18} className="text-text-muted ml-2" />
-                <input
-                  type="text"
-                  autoFocus
-                  placeholder="Chercher un patient..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onBlur={() => { if(!searchQuery) setIsSearchExpanded(false); }}
-                  className="w-full bg-transparent border-none focus:outline-none focus:ring-0 text-sm px-2 py-1.5"
-                />
-                <button type="button" onClick={() => setIsSearchExpanded(false)} className="text-text-muted hover:text-red-500 mr-2">
-                  <X size={16} />
-                </button>
-              </form>
+              <div className="absolute right-0 z-30 animate-in fade-in slide-in-from-right-4">
+                <div className="flex items-center bg-white dark:bg-slate-800 border border-border-main rounded-full px-2 py-1 shadow-elite w-72">
+                  {searchLoading
+                    ? <Loader2 size={18} className="text-primary ml-2 animate-spin flex-shrink-0" />
+                    : <Search size={18} className="text-text-muted ml-2 flex-shrink-0" />
+                  }
+                  <input
+                    type="text"
+                    autoFocus
+                    placeholder="Chercher un patient..."
+                    value={searchQuery}
+                    onChange={(e) => handleSearchChange(e.target.value)}
+                    onBlur={() => { if (!searchQuery) handleSearchClose(); }}
+                    className="w-full bg-transparent border-none focus:outline-none focus:ring-0 text-sm px-2 py-1.5"
+                  />
+                  <button type="button" onClick={handleSearchClose} className="text-text-muted hover:text-red-500 mr-2 flex-shrink-0">
+                    <X size={16} />
+                  </button>
+                </div>
+                {searchResults.length > 0 && (
+                  <div className="absolute top-full mt-2 right-0 w-72 bg-white dark:bg-slate-800 border border-border-main rounded-2xl shadow-2xl overflow-hidden">
+                    {searchResults.map((p) => (
+                      <button
+                        key={p.id}
+                        onMouseDown={() => { navigate(`/patients/${p.id}`); handleSearchClose(); }}
+                        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-primary/5 transition-colors text-left border-b border-border-main last:border-0"
+                      >
+                        <div className="w-9 h-9 bg-primary/10 text-primary rounded-xl flex items-center justify-center font-black text-sm flex-shrink-0">
+                          {(p.nom || '?').charAt(0)}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-black text-sm text-primary truncate">{(p.nom || '').toUpperCase()} {p.prenom || ''}</p>
+                          <p className="text-[10px] text-text-muted font-medium">{p.numero_dossier || `#${p.id}`}</p>
+                        </div>
+                        <ChevronRight size={14} className="text-text-muted ml-auto flex-shrink-0" />
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {searchQuery.trim() && !searchLoading && searchResults.length === 0 && (
+                  <div className="absolute top-full mt-2 right-0 w-72 bg-white dark:bg-slate-800 border border-border-main rounded-2xl shadow-xl px-4 py-3 text-sm text-text-muted font-medium text-center">
+                    Aucun patient trouvé
+                  </div>
+                )}
+              </div>
             ) : (
               <button
                 onClick={() => setIsSearchExpanded(true)}

@@ -4,6 +4,7 @@ import { Save, User, Phone, Mail, Activity, AlertTriangle, UserCheck, FileDigit,
 import { api } from '../../services/api';
 import type { Patient } from '../../types';
 import { cn } from '../../utils/cn';
+import { MotifSelector } from './components/MotifSelector';
 
 // Types pour la gestion des doublons
 interface DuplicateInfo {
@@ -51,7 +52,7 @@ export const AddPatientForm = () => {
     assurance_complementaire: false,
     assurance_complementaire_nom: '',
     antecedents_medicaux: '',
-    motif_consultation: ''
+    motif_consultation: [] as string[]
   });
 
   const [showPhone2, setShowPhone2] = useState(false);
@@ -211,7 +212,7 @@ export const AddPatientForm = () => {
       assurance_privee_nom: formData.assurance_privee_nom === '' ? null : formData.assurance_privee_nom,
       assurance_complementaire_nom: formData.assurance_complementaire_nom === '' ? null : formData.assurance_complementaire_nom,
       antecedents_medicaux: formData.antecedents_medicaux === '' ? null : formData.antecedents_medicaux,
-      motif_consultation: formData.motif_consultation === '' ? null : formData.motif_consultation,
+      motif_consultation: formData.motif_consultation.length === 0 ? null : JSON.stringify(formData.motif_consultation),
     };
 
     try {
@@ -571,14 +572,10 @@ export const AddPatientForm = () => {
             </div>
 
             <div>
-              <label className={labelClass}>Motif de première consultation</label>
-              <textarea 
-                name="motif_consultation" 
-                value={formData.motif_consultation} 
-                onChange={handleChange}
-                rows={2}
-                className={inputClass}
-                placeholder="Ex: Douleur dent 46, visite de contrôle, consultation orthodontique..."
+              <label className={labelClass}>Motif(s) de première consultation</label>
+              <MotifSelector
+                selected={formData.motif_consultation}
+                onChange={(ids) => setFormData((prev: any) => ({ ...prev, motif_consultation: ids }))}
               />
             </div>
 

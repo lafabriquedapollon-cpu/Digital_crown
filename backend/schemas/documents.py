@@ -20,6 +20,7 @@ class OrdonnanceData(BaseModel):
     doc_date: Optional[datetime.date] = None
     age: Optional[int] = None
     gender: Optional[str] = None
+    show_legal_annotations: bool = True
 
 
 class CertificatData(BaseModel):

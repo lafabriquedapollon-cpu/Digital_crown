@@ -100,6 +100,7 @@ interface OrthoState {
   setPreviewPdfUrl: (url: string | null) => void;
   setIsPreviewLoading: (loading: boolean) => void;
   setSyncState: (state: SyncState) => void;
+  clearSyncTimer: () => void;
 
   // Actions API & Logique Métier
   runAnalysis: (file: File) => Promise<void>;
@@ -125,7 +126,7 @@ export const useOrthoStore = create<OrthoState>((set, get) => ({
   activePointId: null,
   imgFilters: { brightness: 100, contrast: 110, invert: false },
   imgDim: { w: 800, h: 1000 },
-  mode: (document.body.dataset.theme === 'dark' || document.body.dataset.theme === 'prestige') ? 'dark' : 'light',
+  mode: (typeof document !== 'undefined' && (document.body?.dataset?.theme === 'dark' || document.body?.dataset?.theme === 'prestige')) ? 'dark' : 'light',
   magnifierEnabled: false,
   performanceMode: false,
   isStep1Fullscreen: false,
@@ -281,6 +282,9 @@ export const useOrthoStore = create<OrthoState>((set, get) => ({
   setPreviewPdfUrl: (url) => set({ previewPdfUrl: url }),
   setIsPreviewLoading: (loading) => set({ isPreviewLoading: loading }),
   setSyncState: (s) => set({ syncState: s }),
+  clearSyncTimer: () => {
+    if (syncTimer) { clearTimeout(syncTimer); syncTimer = undefined; }
+  },
 
   handlePhotoUpload: (id, file) => {
     const url = URL.createObjectURL(file);

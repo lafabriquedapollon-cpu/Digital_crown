@@ -19,8 +19,8 @@ export const AgendaStudio: React.FC = () => {
   const [settings, setSettings] = useState<any>(null);
 
   useEffect(() => {
-    api.get('/api/upcoming-holidays').then(res => setUpcomingHolidays(res.data)).catch(console.error);
-    api.get('/api/agenda/settings').then(res => setSettings(res.data)).catch(console.error);
+    api.get('/upcoming-holidays').then(res => setUpcomingHolidays(res.data)).catch(console.error);
+    api.get('/agenda/settings').then(res => setSettings(res.data)).catch(console.error);
   }, []);
 
   const handlePrev = () => {
@@ -57,7 +57,7 @@ export const AgendaStudio: React.FC = () => {
     if (upcomingHolidays.length === 0) return;
     const hol = upcomingHolidays[0];
     try {
-      await api.post('/api/agenda/exceptions', {
+      await api.post('/agenda/exceptions', {
         start_date: hol.date,
         end_date: hol.date,
         reason: hol.name,

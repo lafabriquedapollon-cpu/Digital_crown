@@ -1,18 +1,20 @@
-import React, { useState } from 'react';
-import { 
-  UserCircle, 
-  Stethoscope, 
-  Palette as PaletteIcon, 
-  ImageIcon, 
-  Upload, 
-  Trash2, 
-  Smartphone, 
-  Phone, 
-  MessageCircle, 
-  Instagram, 
+import React, { useState, useCallback } from 'react';
+import {
+  UserCircle,
+  Stethoscope,
+  Palette as PaletteIcon,
+  ImageIcon,
+  Upload,
+  Trash2,
+  Smartphone,
+  Phone,
+  MessageCircle,
+  Instagram,
   Settings2,
   CheckCircle2,
-  Users
+  Users,
+  Save,
+  Loader2
 } from 'lucide-react';
 import { useSettingsStore } from '../hooks/useSettingsStore';
 import { SettingsSection, inputClass, labelClass } from '../components/SharedUI';
@@ -41,15 +43,32 @@ const DebouncedInput = ({ name, value, onChange, className, placeholder, onFocus
 };
 
 export const ProfileTab: React.FC = () => {
-  const { 
-    profile, 
-    contacts, 
-    updateProfile, 
-    toggleContact, 
-    updateContactValue, 
-    uploadLogo, 
-    deleteLogo 
+  const {
+    profile,
+    contacts,
+    updateProfile,
+    saveProfile,
+    toggleContact,
+    updateContactValue,
+    uploadLogo,
+    deleteLogo
   } = useSettingsStore();
+
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  const handleSave = useCallback(async () => {
+    setSaving(true);
+    try {
+      await saveProfile();
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } catch {
+      // saveProfile shows its own toast
+    } finally {
+      setSaving(false);
+    }
+  }, [saveProfile]);
   
   const [showArKeyboard, setShowArKeyboard] = useState<{type: 'header' | 'name' | 'custom_spec', idx?: number} | null>(null);
 
@@ -212,7 +231,7 @@ export const ProfileTab: React.FC = () => {
                   <ArabicKeyboard onInput={(char) => {
                     const newVal = (profile.nom_praticien_ar || '') + char;
                     if (!profile.header_customized) {
-                      const { header_lines_fr, header_lines_ar } = generateHeaders(profile.nom, newVal, profile.specialty_ids || []);
+                      const { header_lines_fr, header_lines_ar } = generateHeaders(profile.nom, newVal, profile.specialty_ids || [], '', '');
                       updateProfile({ nom_praticien_ar: newVal, header_lines_fr, header_lines_ar });
                     } else {
                       updateProfile({ nom_praticien_ar: newVal });
@@ -295,7 +314,8 @@ export const ProfileTab: React.FC = () => {
                     <div className="absolute top-full right-0 mt-2 z-50">
                       <div className="fixed inset-0" onClick={() => setShowArKeyboard(null)} />
                       <ArabicKeyboard onInput={(char) => {
-                        const newVal = (profile.custom_specialty_ar || '') + char;
+                        const currentVal = useSettingsStore.getState().profile.custom_specialty_ar || '';
+                        const newVal = currentVal + char;
                         handleProfileChange({ target: { name: 'custom_specialty_ar', value: newVal } } as any);
                       }} />
                     </div>
@@ -487,6 +507,19 @@ export const ProfileTab: React.FC = () => {
           })}
         </div>
       </SettingsSection>
+
+      {/* BOUTON SAUVEGARDER */}
+      <div className="sticky bottom-6 flex justify-end">
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="flex items-center gap-2 px-8 py-3 bg-primary text-white rounded-2xl font-black text-sm shadow-xl shadow-primary/30 hover:bg-primary/90 transition-all disabled:opacity-60"
+          style={{ backgroundColor: 'var(--primary)' }}
+        >
+          {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+          {saving ? 'Enregistrement...' : saved ? '✓ Enregistré !' : 'Mettre à jour le profil'}
+        </button>
+      </div>
     </div>
   );
 };

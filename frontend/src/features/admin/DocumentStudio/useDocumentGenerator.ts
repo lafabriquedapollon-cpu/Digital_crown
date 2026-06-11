@@ -23,12 +23,12 @@ interface PatientDetails {
 }
 
 type PaymentMode = 'Espèces' | 'Chèque' | 'TPE' | 'Virement';
-type DocumentType = 'plan' | 'ordonnance' | 'certificat' | 'devis' | 'honoraires' | 'lettre' | 'libre' | 'echeancier';
+import type { HubDocumentType } from '../DocumentHub';
 
 interface UseDocumentGeneratorParams {
   patientId: string | undefined;
   patientDetails: PatientDetails | null;
-  activeTab: DocumentType;
+  activeTab: HubDocumentType;
   drugs: DrugItem[];
   certifType: string;
   certifDays: number;
@@ -49,6 +49,8 @@ interface UseDocumentGeneratorParams {
   isAccounted?: boolean;
   paymentStatus?: string;
   isGlobalNote?: boolean;
+  onSuggestRadio?: () => void;
+  showLegalAnnotations?: boolean;
 }
 
 // --- Validation stricte (Phase 3) ---
@@ -291,6 +293,7 @@ export function useDocumentGenerator(params: UseDocumentGeneratorParams) {
           non_substituable: d.non_substituable ?? false,
         })),
         doc_date: docDate,
+        show_legal_annotations: params.showLegalAnnotations !== false,
       };
     } else if (activeTab === 'certificat') {
       const reason = certifType === 'Autre' ? certifCustomMotif || 'Repos Post-Opératoire' : certifType;
@@ -337,7 +340,14 @@ export function useDocumentGenerator(params: UseDocumentGeneratorParams) {
     }
 
     return payload;
-  }, [params]);
+  }, [
+    params.patientId, params.activeTab, params.drugs, params.certifType, params.certifDays,
+    params.certifCustomMotif, params.items, params.paymentMode, params.libreTitle,
+    params.libreContent, params.libreCustomPatient, params.libreCustomDate,
+    params.libreHideHeader, params.librePageSize, params.libreAlignment, params.docDate,
+    params.patientDetails, params.selectedTeethFromOdontogram, params.installments,
+    params.isAccounted, params.paymentStatus, params.isGlobalNote,
+  ]);
 
   const handleGenerate = useCallback(async (
     archive = false,
@@ -451,6 +461,11 @@ export function useDocumentGenerator(params: UseDocumentGeneratorParams) {
           duration: 8000,
           icon: '📅',
         });
+      }
+
+      // D3: Suggestion ordonnance radio post-prothèse
+      if (res.data.suggest_radio && !isPreview && params.onSuggestRadio) {
+        params.onSuggestRadio();
       }
     } catch (e: any) {
       if (e.response?.status === 409 && e.response?.data?.detail?.code === 'DOUBLE_DETECTED') {

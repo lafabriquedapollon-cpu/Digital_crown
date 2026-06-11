@@ -5,7 +5,7 @@ import toast from 'react-hot-toast';
 
 interface Props {
   selectedTheme: 'elite' | 'emerald' | 'rose' | 'prestige';
-  setSelectedTheme: (v: 'elite' | 'emerald' | 'rose' | 'prestige') => void;
+  setSelectedThemeAndPersist: (v: 'elite' | 'emerald' | 'rose' | 'prestige') => void;
 }
 
 const THEMES = [
@@ -15,7 +15,7 @@ const THEMES = [
   { id: 'prestige' as const, label: 'Nuit Intense', class: 'bg-card border-border-main text-text-main', desc: 'Luxe', icon: Moon, iconColor: 'text-primary' },
 ] as const;
 
-export const Step6Theme: React.FC<Props> = ({ selectedTheme, setSelectedTheme }) => (
+export const Step6Theme: React.FC<Props> = ({ selectedTheme, setSelectedThemeAndPersist }) => (
   <div className="space-y-6 animate-in fade-in duration-300">
     <div className="text-center mb-8">
       <h2 className="text-2xl font-black text-text-main">Atmosphère Élite</h2>
@@ -26,7 +26,7 @@ export const Step6Theme: React.FC<Props> = ({ selectedTheme, setSelectedTheme })
       {THEMES.map((t) => (
         <button
           key={t.id}
-          onClick={() => setSelectedTheme(t.id)}
+          onClick={() => setSelectedThemeAndPersist(t.id)}
           className={cn(
             "flex flex-col items-center gap-4 p-6 rounded-[2rem] border-2 transition-all group relative overflow-hidden",
             t.class,
@@ -53,7 +53,7 @@ export const Step6Theme: React.FC<Props> = ({ selectedTheme, setSelectedTheme })
           <Sparkles size={18} />
         </div>
         <div className="flex gap-2">
-          <button onClick={() => setSelectedTheme('elite')} className="px-3 py-1.5 rounded-lg text-[10px] font-black hover:bg-slate-100 transition-colors">ANNULER</button>
+          <button onClick={() => setSelectedThemeAndPersist('elite')} className="px-3 py-1.5 rounded-lg text-[10px] font-black hover:bg-slate-100 transition-colors">ANNULER</button>
           <button
             onClick={() => toast.success('Thème confirmé !')}
             className="px-3 py-1.5 rounded-lg bg-primary text-white text-[10px] font-black shadow-lg shadow-primary/20"

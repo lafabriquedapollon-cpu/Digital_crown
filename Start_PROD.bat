@@ -6,7 +6,7 @@ echo ==========================================
 echo.
 
 :: Backend PROD (Port 8000)
-start "Backend PROD - 8000" cmd /k "cd /d %~dp0 && venv\Scripts\activate && uvicorn backend.main:app --host 127.0.0.1 --port 8000 --reload"
+start "Backend PROD - 8000" cmd /k "cd /d %~dp0 && venv\Scripts\activate && uvicorn backend.main:app --host 0.0.0.0 --port 8000 --workers 4"
 
 :: Attente pour que le backend démarre
 timeout /t 3 /nobreak >nul

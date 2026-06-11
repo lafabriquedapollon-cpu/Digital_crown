@@ -417,14 +417,14 @@ export const Step1Cephalo: React.FC<Step1CephaloProps> = ({ P, fileRef, step1Con
                 <div className="flex justify-between items-end px-1">
                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Incisive Supérieure (U1)</label>
                   <span className="text-sm font-mono font-bold text-sky-400">
-                    {((vtoSettings.u1_offset?.x || 0) * (mmPerPixel || 0.1)).toFixed(1)} <span className="text-[10px] opacity-50">mm</span>
+                    {mmPerPixel ? ((vtoSettings.u1_offset?.x || 0) * mmPerPixel).toFixed(1) : 'NC'} <span className="text-[10px] opacity-50">{mmPerPixel ? 'mm' : ''}</span>
                   </span>
                 </div>
-                <input 
+                <input
                   type="range" min={-60} max={60} step={1}
-                  value={vtoSettings.u1_offset?.x || 0} 
+                  value={vtoSettings.u1_offset?.x || 0}
                   onChange={(e) => setVtoSettings(v => ({ ...v, u1_offset: { x: +e.target.value, y: v.u1_offset?.y || 0 }}))}
-                  className="w-full h-2 bg-slate-800 rounded-full appearance-none cursor-pointer" 
+                  className="w-full h-2 bg-slate-800 rounded-full appearance-none cursor-pointer"
                   style={{ accentColor: '#38bdf8' }}
                 />
               </div>
@@ -434,14 +434,14 @@ export const Step1Cephalo: React.FC<Step1CephaloProps> = ({ P, fileRef, step1Con
                 <div className="flex justify-between items-end px-1">
                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Incisive Inférieure (L1)</label>
                   <span className="text-sm font-mono font-bold text-emerald-400">
-                    {((vtoSettings.l1_offset?.x || 0) * (mmPerPixel || 0.1)).toFixed(1)} <span className="text-[10px] opacity-50">mm</span>
+                    {mmPerPixel ? ((vtoSettings.l1_offset?.x || 0) * mmPerPixel).toFixed(1) : 'NC'} <span className="text-[10px] opacity-50">{mmPerPixel ? 'mm' : ''}</span>
                   </span>
                 </div>
-                <input 
+                <input
                   type="range" min={-60} max={60} step={1}
-                  value={vtoSettings.l1_offset?.x || 0} 
+                  value={vtoSettings.l1_offset?.x || 0}
                   onChange={(e) => setVtoSettings(v => ({ ...v, l1_offset: { x: +e.target.value, y: v.l1_offset?.y || 0 }}))}
-                  className="w-full h-2 bg-slate-800 rounded-full appearance-none cursor-pointer" 
+                  className="w-full h-2 bg-slate-800 rounded-full appearance-none cursor-pointer"
                   style={{ accentColor: '#34d399' }}
                 />
               </div>
@@ -451,7 +451,7 @@ export const Step1Cephalo: React.FC<Step1CephaloProps> = ({ P, fileRef, step1Con
                 <div className="flex justify-between items-end px-1">
                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Avancement Mandibulaire</label>
                   <span className="text-sm font-mono font-bold text-amber-400">
-                    {((vtoSettings.mand_offset?.x || 0) * (mmPerPixel || 0.1)).toFixed(1)} <span className="text-[10px] opacity-50">mm</span>
+                    {mmPerPixel ? ((vtoSettings.mand_offset?.x || 0) * mmPerPixel).toFixed(1) : 'NC'} <span className="text-[10px] opacity-50">{mmPerPixel ? 'mm' : ''}</span>
                   </span>
                 </div>
                 <input 

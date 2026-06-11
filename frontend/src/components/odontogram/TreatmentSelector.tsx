@@ -64,7 +64,12 @@ export const TreatmentSelector: React.FC<TreatmentSelectorProps> = ({
   const [notes, setNotes] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [mounted, setMounted] = useState(false);
-  const { specialties, fetchCatalog } = useCatalogStore();
+  const [showAddAct, setShowAddAct] = useState(false);
+  const [newActName, setNewActName] = useState('');
+  const [newActPrice, setNewActPrice] = useState('');
+  const [addingAct, setAddingAct] = useState(false);
+  const { specialties, fetchCatalog, createAct } = useCatalogStore();
+
 
   const CATEGORY_LABELS = useMemo(() => {
     const labels: Record<string, string> = {};
@@ -331,6 +336,66 @@ export const TreatmentSelector: React.FC<TreatmentSelectorProps> = ({
                      </button>
                    </div>
                 )}
+
+                {/* Add act inline — visible when on a specific specialty tab */}
+                {!['FREQUENTS', 'ALL', 'SEARCH'].includes(activeCategory) && (() => {
+                  const spec = specialties.find(s => s.name === activeCategory);
+                  if (!spec) return null;
+                  return (
+                    <div className="p-4 bg-slate-50/50 border-t border-slate-100">
+                      {!showAddAct ? (
+                        <button
+                          onClick={() => { setShowAddAct(true); setNewActName(''); setNewActPrice(''); }}
+                          className="w-full flex items-center justify-center gap-2 py-3 bg-white border border-dashed border-slate-200 rounded-2xl text-xs font-black text-slate-400 hover:text-primary hover:border-primary transition-all group"
+                        >
+                          <Plus size={14} className="group-hover:rotate-90 transition-transform" />
+                          Ajouter un acte à {activeCategory}
+                        </button>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <input
+                            autoFocus
+                            type="text"
+                            placeholder="Nom de l'acte..."
+                            value={newActName}
+                            onChange={e => setNewActName(e.target.value)}
+                            className="flex-1 px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-primary transition-all"
+                          />
+                          <input
+                            type="number"
+                            placeholder="Prix MAD"
+                            value={newActPrice}
+                            onChange={e => setNewActPrice(e.target.value)}
+                            className="w-24 px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-right text-slate-800 outline-none focus:border-primary transition-all"
+                          />
+                          <button
+                            disabled={!newActName.trim() || addingAct}
+                            onClick={async () => {
+                              if (!newActName.trim()) return;
+                              setAddingAct(true);
+                              await createAct(spec.id, { name: newActName.trim(), base_price: Number(newActPrice) || 0 });
+                              await fetchCatalog();
+                              setShowAddAct(false);
+                              setNewActName('');
+                              setNewActPrice('');
+                              setAddingAct(false);
+                            }}
+                            className="px-4 py-2.5 bg-primary text-white rounded-xl text-xs font-black disabled:opacity-40 transition-all hover:scale-105 active:scale-95 shadow-md shadow-primary/20"
+                            style={{ backgroundColor: 'var(--primary)' }}
+                          >
+                            {addingAct ? '...' : 'OK'}
+                          </button>
+                          <button
+                            onClick={() => setShowAddAct(false)}
+                            className="px-3 py-2.5 bg-slate-100 text-slate-500 rounded-xl text-xs font-black hover:bg-slate-200 transition-all"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           </div>

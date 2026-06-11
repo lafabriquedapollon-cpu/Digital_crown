@@ -22,7 +22,12 @@ import { useAuthStore } from '../stores/useAuthStore';
 // --- OFFICIAL ASSET IMPORT (Digital Crown Logo) ---
 import Logo from '../assets/logo.png';
 
-export const Sidebar = () => {
+interface SidebarProps {
+  isOpen?: boolean;
+  onClose?: () => void;
+}
+
+export const Sidebar = ({ isOpen = false, onClose }: SidebarProps) => {
   const { activeCabinetId, cabinets, switchCabinet } = useSettingsStore();
   const { user } = useAuthStore();
   const location = useLocation();
@@ -122,6 +127,13 @@ export const Sidebar = () => {
 
   return (
     <>
+      {/* Backdrop overlay for mobile/tablet */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[9999] lg:hidden"
+          onClick={onClose}
+        />
+      )}
       {/* Animation adaptée pour le fond clair */}
       <style>{`
         @keyframes logo-pulse-light {
@@ -139,7 +151,10 @@ export const Sidebar = () => {
         .animate-tooth-slingshot { animation: logo-slingshot 1.2s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
       `}</style>
       {/* SIDEBAR : Clinical Premium Elite */}
-      <aside className="w-72 bg-sidebar backdrop-blur-2xl border-r border-border-main shadow-elite flex flex-col h-screen fixed lg:relative z-[10000] shrink-0 transition-elite">
+      <aside className={cn(
+        "w-72 bg-sidebar backdrop-blur-2xl border-r border-border-main shadow-elite flex flex-col h-screen fixed lg:relative z-[10000] shrink-0 transition-all duration-300",
+        isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+      )}>
         
         {/* PRODUCT IDENTITY: DIGITAL CROWN LOGO (Centered) */}
         <div className="p-6 flex items-center justify-center border-b border-border-main shrink-0 h-28 relative group/logo">

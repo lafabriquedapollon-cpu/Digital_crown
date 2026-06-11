@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import axios from 'axios';
 
 // Le type de réponse retournée par le backend
@@ -42,7 +42,7 @@ export const useCrownBot = () => {
     ]);
   }, []);
 
-  const sendMessage = async (text: string) => {
+  const sendMessage = useCallback(async (text: string) => {
     if (!text.trim()) return;
 
     const userMessageId = Date.now().toString();
@@ -87,9 +87,9 @@ export const useCrownBot = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
-  const clearHistory = () => {
+  const clearHistory = useCallback(() => {
     setMessages([
       {
         id: 'init',
@@ -99,7 +99,7 @@ export const useCrownBot = () => {
         suggestions: ["Agenda d'aujourd'hui", "Aide"]
       }
     ]);
-  };
+  }, []);
 
   return {
     messages,

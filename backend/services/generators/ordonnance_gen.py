@@ -293,10 +293,14 @@ class OrdonnanceGenerator:
                 elements.append(med_line_table)
                 
                 if is_radio:
-                    warning_msg = "⚠️ Radioprotection : À réaliser selon les normes de sécurité en vigueur."
-                    if posologie:
-                        warning_msg += f"<br/>{posologie.replace(chr(10), '<br/>')}"
-                    elements.append(Paragraph(warning_msg, warning_style))
+                    show_legal = getattr(data, 'show_legal_annotations', True)
+                    if show_legal:
+                        warning_msg = "⚠️ Radioprotection : À réaliser selon les normes de sécurité en vigueur."
+                        if posologie:
+                            warning_msg += f"<br/>{posologie.replace(chr(10), '<br/>')}"
+                        elements.append(Paragraph(warning_msg, warning_style))
+                    elif posologie:
+                        elements.append(Paragraph(posologie.replace("\n", "<br/>"), poso_style))
                 elif posologie:
                     poso_html = posologie.replace("\n", "<br/>")
                     elements.append(Paragraph(poso_html, poso_style))

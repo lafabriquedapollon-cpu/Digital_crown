@@ -1,9 +1,12 @@
+import logging
 from fastapi import APIRouter, Depends, HTTPException, status, Response
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, or_
 from typing import List, Optional
 from datetime import datetime, timedelta
 import os
+
+logger = logging.getLogger(__name__)
 
 from backend import models, schemas, database
 from backend.routers.auth import get_current_user, require_permission
@@ -42,8 +45,8 @@ def generate_next_dossier_number(db: Session, employer_id: int) -> str:
                 if num > max_num:
                     max_num = num
             except ValueError:
-                pass
-                
+                logger.debug("Impossible d'extraire un numéro de dossier depuis : %s", dossier)
+
     next_num = max_num + 1
     return str(next_num)
 
@@ -56,7 +59,10 @@ def get_next_dossier_number(db: Session = Depends(database.get_db), current_user
 
 @router.get("/check-dossier/{numero}")
 def check_dossier_availability(numero: str, db: Session = Depends(database.get_db), current_user: models.User = Depends(require_permission("patients"))):
-    exists = db.query(models.Patient).filter(models.Patient.numero_dossier == numero).first()
+    exists = db.query(models.Patient).filter(
+        models.Patient.numero_dossier == numero,
+        models.Patient.employer_id == current_user.get_employer_id()
+    ).first()
     return {
         "exists": bool(exists),
         "patient_id": exists.id if exists else None,
@@ -463,7 +469,7 @@ def generate_cephalo_pdf(
                 on_conflict=ConflictResolution.CREATE_VERSION
             )
         except Exception as e:
-            pass  # Ignorer si doublon ou erreur
+            logger.warning("Archivage du rapport céphalo ignoré (doublon ou erreur) : %s", e)
             
     return FileResponse(path=pdf_path, filename=os.path.basename(pdf_path), media_type='application/pdf')
 
