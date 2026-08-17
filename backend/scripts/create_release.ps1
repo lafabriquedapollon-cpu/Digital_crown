@@ -7,12 +7,11 @@
 # produces a release candidate, it does not put it into service.
 
 param(
-    [string]$RuntimeRoot = "C:\Users\lenovo\DigitalCrown-Runtime"
+    [string]$RuntimeRoot = "C:\Users\lenovo\DigitalCrown-Runtime",
+    [string]$RepoRoot = "C:\Users\lenovo\Documents\Cabinet\DigitalCrown"
 )
 
 $ErrorActionPreference = "Stop"
-$RepoRoot = "C:\Users\lenovo\Documents\Cabinet\DigitalCrown"
-
 Write-Host "=== create_release.ps1 - immutable snapshot ===" -ForegroundColor Yellow
 
 if (-not (Test-Path $RepoRoot)) {
@@ -28,6 +27,11 @@ if (-not (Test-Path $distIndex)) {
 
 $commit = (git -C $RepoRoot rev-parse HEAD 2>$null)
 if (-not $commit) { $commit = "unknown" }
+$dirty = git -C $RepoRoot status --porcelain --untracked-files=no 2>$null
+if ($dirty) {
+    Write-Host "ERROR: source worktree contains tracked modifications. Release refused." -ForegroundColor Red
+    exit 1
+}
 $commitShort = $commit.Substring(0, [Math]::Min(12, $commit.Length))
 $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
 $releaseId = "$timestamp-$commitShort"

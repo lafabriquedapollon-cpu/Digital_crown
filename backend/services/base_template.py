@@ -310,7 +310,10 @@ class BaseTemplate:
     def scale_elements(elements, factor):
         """Réduction proportionnelle de tous les Paragraph et Spacer pour forcer 1 page."""
         if factor >= 0.99:
-            return elements
+            # ReportLab consumes (empties) the story list passed to doc.build.
+            # Single-page rendering may build more than once, so every pass
+            # must receive an independent list, including the unscaled pass.
+            return list(elements)
         from reportlab.platypus import Paragraph as RLParagraph, Spacer as RLSpacer
         from reportlab.lib.styles import ParagraphStyle
         scaled = []

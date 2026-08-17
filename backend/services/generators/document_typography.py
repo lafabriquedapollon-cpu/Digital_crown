@@ -28,10 +28,10 @@ COL_STATUT_PCT = "14%"
 # === Tailles ReportLab (pts) — ordonnances/prescriptions ===
 PRESCRIPTION_TITLE_SIZE = 17
 PRESCRIPTION_PATIENT_SIZE = 10.5
-PRESCRIPTION_DRUG_NAME_SIZE = 11
-PRESCRIPTION_META_SIZE = 8.5      # forme/dosage
-PRESCRIPTION_DOSAGE_SIZE = 9.5
-PRESCRIPTION_INSTRUCTION_SIZE = 10  # posologie
+PRESCRIPTION_DRUG_NAME_SIZE = 12.5
+PRESCRIPTION_META_SIZE = 10        # forme/dosage
+PRESCRIPTION_DOSAGE_SIZE = 10.5
+PRESCRIPTION_INSTRUCTION_SIZE = 11.5  # posologie
 
 # === Largeurs de colonnes fixes — grille médicament/forme/dosage (cm) ===
 # Fixes et constantes pour TOUTES les lignes d'une même ordonnance : si les

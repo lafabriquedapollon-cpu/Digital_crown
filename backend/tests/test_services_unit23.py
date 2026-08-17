@@ -146,17 +146,21 @@ class TestGetAdaptiveStyle:
 # ── scale_elements ─────────────────────────────────────────────────────────────
 
 class TestScaleElements:
-    def test_factor_1_returns_original(self):
+    def test_factor_1_returns_independent_story(self):
         from backend.services.base_template import BaseTemplate
         els = ["a", "b", "c"]
         result = BaseTemplate.scale_elements(els, 1.0)
-        assert result is els
+        assert result == els
+        assert result is not els
+        result.clear()
+        assert els == ["a", "b", "c"]
 
-    def test_factor_099_returns_original(self):
+    def test_factor_099_returns_independent_story(self):
         from backend.services.base_template import BaseTemplate
         els = [1, 2, 3]
         result = BaseTemplate.scale_elements(els, 0.99)
-        assert result is els
+        assert result == els
+        assert result is not els
 
     def test_scale_paragraph_reduces_font(self):
         from backend.services.base_template import BaseTemplate

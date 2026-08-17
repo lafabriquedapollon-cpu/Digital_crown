@@ -515,14 +515,16 @@ async def google_authorize(response: Response):
 
 @router.get("/google/callback", summary="Callback Google OAuth")
 async def google_callback(
+    request: Request,
     code: str = None,
     error: str = None,
     db: Session = Depends(get_db),
 ):
     from fastapi.responses import RedirectResponse
-    from backend.routers.mobile import resolve_frontend_url
-    # Auto-détection LAN si FRONTEND_URL est localhost / IP LAN périmée (DHCP).
-    frontend_url = resolve_frontend_url(settings.FRONTEND_URL)
+    # En mode packagé, le frontend est servi par ce même backend. Revenir sur
+    # l'origine effective du callback évite l'ancien FRONTEND_URL Vite (:5173),
+    # désormais fermé en production cabinet.
+    frontend_url = str(request.base_url).rstrip("/")
 
     if error or not code:
         return RedirectResponse(url=f"{frontend_url}/login?error=google_cancelled")

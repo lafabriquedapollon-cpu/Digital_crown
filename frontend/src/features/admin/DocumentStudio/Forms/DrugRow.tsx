@@ -185,7 +185,7 @@ export const DrugRow: React.FC<DrugRowProps> = ({
                   <button
                     type="button"
                     onClick={e => onFormeOpen(e, drug.id)}
-                    className="bg-white/80 px-2.5 py-1.5 rounded-xl text-[8px] font-black text-primary uppercase tracking-widest border border-slate-100 hover:border-primary/20 hover:shadow-sm transition-all flex items-center gap-1.5"
+                    className="bg-white/80 px-3 py-2 rounded-xl text-xs font-black text-primary uppercase tracking-wide border border-slate-100 hover:border-primary/20 hover:shadow-sm transition-all flex items-center gap-1.5"
                     style={{ color: 'var(--primary)' }}
                   >
                     {getFormeIcon(drug.forme)}
@@ -195,7 +195,7 @@ export const DrugRow: React.FC<DrugRowProps> = ({
                   {drug.forme.startsWith('AUTRE') && (
                     <input
                       type="text"
-                      className="w-24 bg-white/50 border border-slate-200 px-2.5 py-1.5 rounded-xl focus:ring-0 text-[9px] font-black text-slate-700 uppercase tracking-widest placeholder:text-slate-400 focus:border-primary/40 transition-colors"
+                      className="w-28 bg-white/50 border border-slate-200 px-3 py-2 rounded-xl focus:ring-0 text-xs font-black text-slate-700 uppercase tracking-wide placeholder:text-slate-400 focus:border-primary/40 transition-colors"
                       placeholder="PRÉCISER..."
                       value={drug.forme.includes(':') ? drug.forme.split(':')[1].trim() : ''}
                       onChange={e => onUpdateDrug(drug.id, 'forme', `AUTRE: ${e.target.value}`)}
@@ -203,10 +203,10 @@ export const DrugRow: React.FC<DrugRowProps> = ({
                   )}
 
                   <div className="flex items-center gap-1 bg-white/80 px-2.5 py-2.5 rounded-xl border border-slate-100 shadow-sm">
-                    <span className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Dose:</span>
+                    <span className="text-[11px] font-black text-slate-500 uppercase tracking-wide">Dose:</span>
                     <input
                       type="text"
-                      className="w-20 bg-transparent border-none p-0 focus:ring-0 text-[9px] font-black text-slate-600 uppercase tracking-widest placeholder:text-slate-400"
+                      className="w-24 bg-transparent border-none p-0 focus:ring-0 text-xs font-black text-slate-700 uppercase tracking-wide placeholder:text-slate-400"
                       placeholder="500MG..."
                       value={drug.dosage}
                       onFocus={() => onSearch(drug.id, 'dosage', drug.dosage)}
@@ -218,7 +218,7 @@ export const DrugRow: React.FC<DrugRowProps> = ({
                     type="button"
                     onClick={() => onUpdateDrug(drug.id, 'non_substituable', !drug.non_substituable)}
                     className={cn(
-                      'px-2.5 py-1.5 rounded-xl border text-[8px] font-black uppercase tracking-widest transition-all select-none',
+                      'px-3 py-2 rounded-xl border text-xs font-black uppercase tracking-wide transition-all select-none',
                       drug.non_substituable
                         ? 'bg-violet-600 text-white border-violet-600 shadow-sm shadow-violet-500/20'
                         : 'bg-white/80 text-slate-300 border-slate-100 hover:border-slate-300 hover:text-slate-500',
@@ -237,7 +237,7 @@ export const DrugRow: React.FC<DrugRowProps> = ({
                 <div className="bg-slate-50/50 px-3 py-3.5 rounded-2xl border border-slate-100 group-hover:bg-white transition-all focus-within:ring-2 focus-within:ring-primary/5 focus-within:border-primary/20 focus-within:shadow-sm">
                   <textarea
                     rows={2}
-                    className="w-full bg-transparent border-none p-0 text-[11px] font-bold text-slate-600 focus:ring-0 resize-none placeholder:text-slate-300 leading-snug min-h-[2.75rem]"
+                    className="w-full bg-transparent border-none p-0 text-sm font-semibold text-slate-700 focus:ring-0 resize-none placeholder:text-slate-400 leading-relaxed min-h-[3rem]"
                     placeholder="ex : 1 gél. × 3/jour pendant 7j"
                     value={drug.posologie}
                     onFocus={() => onSearch(drug.id, 'posologie', drug.posologie)}
@@ -309,9 +309,11 @@ export const DrugRow: React.FC<DrugRowProps> = ({
           <button
             onClick={() => onRemoveDrug(drug.id)}
             className="min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all active:scale-95"
-            title="Supprimer"
+            title="Supprimer cette ligne"
+            aria-label="Supprimer cette ligne de l'ordonnance"
           >
             <Trash2 size={18} />
+            <span className="ml-2 text-xs font-bold lg:hidden">Supprimer la ligne</span>
           </button>
         </div>
       </div>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
@@ -90,7 +90,7 @@ export const DocumentHub: React.FC<DocumentHubProps> = ({ patientId, patientName
 
   // --- ÉTATS FORMULAIRES ---
   const [drugs, setDrugs] = useState<DrugItem[]>([{ id: 1, name: '', dosage: '', forme: '', posologie: '', type: 'MEDICAMENT' }]);
-  const [showLegalAnnotations, setShowLegalAnnotations] = useState(true);
+  const [showLegalAnnotations, setShowLegalAnnotations] = useState(false);
   const [certifType, setCertifType] = useState('Repos médical');
   const [certifDays, setCertifDays] = useState(5);
   const [certifCustomMotif, setCertifCustomMotif] = useState('');
@@ -412,15 +412,19 @@ export const DocumentHub: React.FC<DocumentHubProps> = ({ patientId, patientName
     }
   }, [patientId, activeTab]);
 
+  // Keep the latest generator without making preview completion re-arm this effect.
+  const previewGenerateRef = useRef(generator.handleGenerate);
   useEffect(() => {
-    if (sideStudioType !== 'PREVIEW') return;
-    const timer = setTimeout(() => generator.handleGenerate(false, false, true), 1200);
+    previewGenerateRef.current = generator.handleGenerate;
+  }, [generator.handleGenerate]);
+
+  useEffect(() => {
+    if (sideStudioType !== 'PREVIEW' || !patientId || !patientDetails) return;
+    const timer = setTimeout(() => previewGenerateRef.current(false, false, true), 1200);
     return () => clearTimeout(timer);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    sideStudioType, drugs, items, certifType, certifDays, paymentMode, 
-    libreTitle, libreContent, docDate, activeTab, 
-    generator.handleGenerate // Seule la fonction stable est nécessaire
+    sideStudioType, patientId, patientDetails, drugs, items, certifType, certifDays,
+    paymentMode, libreTitle, libreContent, docDate, activeTab,
   ]);
 
   useEffect(() => {
@@ -490,7 +494,7 @@ export const DocumentHub: React.FC<DocumentHubProps> = ({ patientId, patientName
                   showLegalAnnotations ? "translate-x-4" : "translate-x-0"
                 )} />
               </button>
-              <span className="text-[10px] font-bold text-text-muted uppercase tracking-widest">
+              <span className="text-xs font-bold text-text-muted uppercase tracking-wide">
                 Mentions légales (Radioprotection)
               </span>
             </div>

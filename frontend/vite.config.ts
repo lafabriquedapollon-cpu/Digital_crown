@@ -34,9 +34,9 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
-      injectRegister: 'auto',
-      filename: 'pwa-sw.js', // Nom distinct pour ne pas écraser public/sw.js (mobile custom SW)
+      registerType: 'prompt',
+      injectRegister: false,
+      filename: 'pwa-sw.js', // Worker applicatif unique pour le scope racine
       includeAssets: ['logo.svg', 'logo.png'],
       manifest: false, // Utilise public/manifest.json
       workbox: {

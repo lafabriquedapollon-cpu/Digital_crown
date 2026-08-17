@@ -92,6 +92,27 @@ class TestPrescriptionHabits:
         assert r.status_code == 200
         assert isinstance(r.json(), list)
 
+    def test_saved_prescription_can_be_listed_and_deleted(self, client, auth_headers):
+        payload = {
+            "act_code": "Post extraction",
+            "drugs": [{"name": "DOLIPRANE", "dosage": "1G", "forme": "COMPRIMÉS", "posologie": "1 cp x 3/j"}],
+        }
+        saved = client.post("/api/prescriptions/preferences", json=payload, headers=auth_headers)
+        assert saved.status_code == 200
+
+        listed = client.get("/api/prescriptions/habits/presets", headers=auth_headers)
+        assert listed.status_code == 200
+        assert any(p["act_context"] == "POST EXTRACTION" for p in listed.json())
+
+        deleted = client.delete("/api/prescriptions/preferences/POST%20EXTRACTION", headers=auth_headers)
+        assert deleted.status_code == 200
+        listed_again = client.get("/api/prescriptions/habits/presets", headers=auth_headers)
+        assert all(p["act_context"] != "POST EXTRACTION" for p in listed_again.json())
+
+    def test_deleting_unknown_saved_prescription_returns_404(self, client, auth_headers):
+        r = client.delete("/api/prescriptions/preferences/INCONNUE", headers=auth_headers)
+        assert r.status_code == 404
+
     def test_record_habit_requires_auth(self, client):
         r = client.post("/api/prescriptions/habits/record", json={"medication_name": "Amox"})
         assert r.status_code == 401

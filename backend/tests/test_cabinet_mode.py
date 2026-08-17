@@ -101,6 +101,8 @@ class TestRunPyHostResolution:
         assert "CABINET_PORT" in source
         assert '"0.0.0.0" if env == "cabinet"' in source
         assert 'host="127.0.0.1"' not in source  # plus de bind hardcodé
+        assert "_server_is_ready" in source
+        assert "open_browser_when_ready" in source
 
 
 class TestSpecNoSecrets:

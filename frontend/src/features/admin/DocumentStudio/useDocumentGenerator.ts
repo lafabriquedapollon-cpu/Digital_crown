@@ -185,6 +185,7 @@ function analyzeCoherence(params: UseDocumentGeneratorParams): CoherenceWarning[
 export function useDocumentGenerator(params: UseDocumentGeneratorParams) {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const blobUrlRef = useRef<string | null>(null);
+  const previewInFlightRef = useRef(false);
   const [loading, setLoading] = useState(false);
   const [aiReport, setAiReport] = useState<string | null>(null);
   const [loadingAi, setLoadingAi] = useState(false);
@@ -217,12 +218,14 @@ export function useDocumentGenerator(params: UseDocumentGeneratorParams) {
         
         console.log("🖨️ Tentative d'impression directe :", fetchUrl);
         
-        // Extract the path from fetchUrl since api.get will prepend the base URL
-        const basePath = fetchUrl.replace(`${API_BASE}/api`, '');
-        
-        const response = await api.get(basePath, { responseType: 'blob' });
-        const blob = response.data;
-        const localBlobUrl = URL.createObjectURL(blob);
+        const isLocalPdfUrl = fetchUrl.startsWith('blob:') || fetchUrl.startsWith('data:');
+        // A blob URL already belongs to this browser context. Sending it through
+        // Axios would turn it into /api/blob:... and fail instead of printing it.
+        const localBlobUrl = isLocalPdfUrl
+          ? fetchUrl
+          : URL.createObjectURL((await api.get(fetchUrl.replace(API_BASE + '/api', ''), {
+            responseType: 'blob',
+          })).data);
         
         // Création d'un iframe caché pour l'impression
         const printFrame = document.createElement('iframe');
@@ -253,7 +256,7 @@ export function useDocumentGenerator(params: UseDocumentGeneratorParams) {
               if (document.body.contains(printFrame)) {
                 document.body.removeChild(printFrame);
               }
-              URL.revokeObjectURL(localBlobUrl);
+              if (!isLocalPdfUrl) URL.revokeObjectURL(localBlobUrl);
             }, 5000);
           }
         };
@@ -295,7 +298,7 @@ export function useDocumentGenerator(params: UseDocumentGeneratorParams) {
           non_substituable: d.non_substituable ?? false,
         })),
         doc_date: docDate,
-        show_legal_annotations: params.showLegalAnnotations !== false,
+        show_legal_annotations: params.showLegalAnnotations === true,
       };
     } else if (activeTab === 'certificat') {
       const reason = certifType === 'Autre' ? certifCustomMotif || 'Repos Post-Opératoire' : certifType;
@@ -359,6 +362,8 @@ export function useDocumentGenerator(params: UseDocumentGeneratorParams) {
   ) => {
     if (!patientId) return;
     if (activeTab === 'plan') return;
+    if (isPreview && previewInFlightRef.current) return;
+    if (isPreview) previewInFlightRef.current = true;
 
     // Flux dédié échéancier — même pattern blob+fallback que honoraires
     if (activeTab === 'echeancier') {
@@ -371,7 +376,28 @@ export function useDocumentGenerator(params: UseDocumentGeneratorParams) {
       setLoading(true);
       if (print) setPendingPrint(true);
       try {
-        const res = await api.post('/installments/generate-preview', payload);
+        let res;
+        if (archive && !isPreview) {
+          const savedPlan = await api.post('/installments/', {
+            patient_id: payload.patient_id,
+            title: payload.title,
+            total_amount: payload.total_amount,
+            installments: payload.items.map(item => ({
+              label: item.label,
+              amount: item.amount,
+              due_date: item.due_date,
+              status: item.paid ? 'PAYE' : 'EN_ATTENTE',
+            })),
+          });
+          res = await api.post('/documents/generate?archive=true', {
+            type: 'echeancier',
+            patient_id: payload.patient_id,
+            data: { plan_id: savedPlan.data.id },
+          });
+          toast.success('\u00C9ch\u00E9ancier enregistr\u00E9 dans le dossier patient.');
+        } else {
+          res = await api.post('/installments/generate-preview', payload);
+        }
         if (res.data.pdf_url) {
           const cleanPdfPath = res.data.pdf_url.startsWith('/') ? res.data.pdf_url.substring(1) : res.data.pdf_url;
           let finalUrl = '';
@@ -529,6 +555,7 @@ export function useDocumentGenerator(params: UseDocumentGeneratorParams) {
         toast.error('Erreur : ' + msg, { duration: 6000 });
       }
     } finally {
+      if (isPreview) previewInFlightRef.current = false;
       setLoading(false);
       setShowPrintWarning(false);
     }

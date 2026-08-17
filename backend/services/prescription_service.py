@@ -114,6 +114,7 @@ class PrescriptionService:
         except Exception as e:
             db.rollback()
             logger.error(f"❌ Erreur apprentissage habitude : {e}")
+            raise
             
     def record_medication_usage(self, db: Session, doctor_id: int, med_name: str, dosage: str = None, posologie: str = None):
         """
@@ -572,12 +573,12 @@ class PrescriptionService:
         ]
 
     def delete_doctor_preset(self, db: Session, doctor_id: int, act_code: str):
-        db.query(models.DoctorActHabit).filter(
-            models.DoctorActHabit.doctor_id == doctor_id,
-            models.DoctorActHabit.act_context == act_code
-        ).delete()
+        deleted = db.query(models.DoctorPrescriptionPreference).filter(
+            models.DoctorPrescriptionPreference.doctor_id == doctor_id,
+            models.DoctorPrescriptionPreference.act_code == act_code
+        ).delete(synchronize_session=False)
         db.commit()
-        return True
+        return deleted > 0
 
     def get_doctor_habits_summary(self, db: Session, doctor_id: int) -> Dict[str, Any]:
         """

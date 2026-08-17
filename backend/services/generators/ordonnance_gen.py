@@ -317,7 +317,7 @@ class OrdonnanceGenerator:
                 posologie_safe = protect_unit_patterns(posologie) if posologie else posologie
 
                 if is_radio:
-                    show_legal = getattr(data, 'show_legal_annotations', True)
+                    show_legal = getattr(data, 'show_legal_annotations', False)
                     if show_legal:
                         warning_msg = "⚠️ Radioprotection : À réaliser selon les normes de sécurité en vigueur."
                         if posologie_safe:

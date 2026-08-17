@@ -443,7 +443,7 @@ async def save_prescription_preference(req: dict, db: Session = Depends(database
     if not act_code or not drugs:
         raise HTTPException(status_code=400, detail="Données de préférence incomplètes")
         
-    prescription_service.learn_habit(db, current_user.id, act_code, drugs)
+    prescription_service.learn_habit(db, current_user.id, act_code.strip().upper(), drugs)
     return {"status": "success", "message": "Habitude enregistrée avec succès"}
 
 @prescription_router.delete("/preferences/{act_code}")
@@ -451,7 +451,9 @@ async def delete_prescription_preference(act_code: str, db: Session = Depends(da
     """
     Supprime un preset (habitude de prescription par acte) pour le médecin actuel.
     """
-    prescription_service.delete_doctor_preset(db, current_user.id, act_code)
+    deleted = prescription_service.delete_doctor_preset(db, current_user.id, act_code)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Ordonnance enregistrée introuvable")
     return {"status": "success", "message": "Preset supprimé avec succès"}
 
 @prescription_router.get("/certif-suggest/{patient_id}")

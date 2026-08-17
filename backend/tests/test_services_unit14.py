@@ -3,6 +3,17 @@ email_service no-op paths, ghost_memory _hash_context."""
 import pytest
 
 
+def test_arabic_pdf_font_is_packaged_and_registered():
+    """Un PDF cabinet ne doit jamais rendre l'arabe avec Helvetica (carrés)."""
+    from pathlib import Path
+    from backend.services.base_template import BaseTemplate
+
+    template = BaseTemplate()
+
+    assert Path(template.font_path).is_file()
+    assert template.arabic_font == "ArabicFont"
+
+
 # ── PinnedCloture._strip_tags ─────────────────────────────────────────────────
 
 class TestPinnedCloture:

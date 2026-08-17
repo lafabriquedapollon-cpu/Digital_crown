@@ -138,3 +138,15 @@ class TestSignup:
         assert body["email"] == "new-client@cabinet.ma"
         assert body["is_active"] is False
         assert body["is_licensed"] is False
+
+
+class TestGoogleOAuth:
+    def test_callback_returns_to_serving_origin_not_legacy_vite_port(self, client):
+        response = client.get(
+            "/api/auth/google/callback?error=access_denied",
+            follow_redirects=False,
+        )
+
+        assert response.status_code == 307
+        assert response.headers["location"] == "http://testserver/login?error=google_cancelled"
+        assert ":5173" not in response.headers["location"]

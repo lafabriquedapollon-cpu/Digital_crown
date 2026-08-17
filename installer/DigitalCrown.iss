@@ -53,8 +53,8 @@ Name: "french"; MessagesFile: "compiler:Languages\French.isl"
 Source: "{#MyDistDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
-Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
+Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Comment: "Démarrer Digital Crown et ouvrir l'interface"
+Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Comment: "Démarrer Digital Crown et ouvrir l'interface"
 
 [Run]
 ; Tâche planifiée au logon de l'utilisateur courant (pas de service SYSTEM,

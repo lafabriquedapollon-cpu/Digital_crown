@@ -2,7 +2,7 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Brain, CheckCircle2, AlertCircle, Zap, RefreshCcw, ChevronRight,
-  ShieldCheck, Stethoscope, Loader2, Plus, ChevronDown,
+  ShieldCheck, Stethoscope, Loader2, Plus, ChevronDown, Save, Trash2,
 } from 'lucide-react';
 import { cn } from '../../../../utils/cn';
 import { api } from '../../../../services/api';
@@ -146,11 +146,16 @@ export const PrescriptionAgenticStudio: React.FC<PrescriptionAgenticStudioProps>
 
   const saveCurrentAsPreset = async () => {
     if (!newPresetName.trim()) return;
+    const savableDrugs = drugs.filter(d => d.name.trim());
+    if (savableDrugs.length === 0) {
+      toast.error('Ajoutez au moins une ligne avant d\'enregistrer cette ordonnance.');
+      return;
+    }
     setSavingAsPreset(true);
     try {
       await api.post('/prescriptions/preferences', {
         act_code: newPresetName.toUpperCase(),
-        drugs: drugs.map(d => ({ name: d.name, dosage: d.dosage, forme: d.forme, posologie: d.posologie })),
+        drugs: savableDrugs.map(d => ({ name: d.name, dosage: d.dosage, forme: d.forme, posologie: d.posologie })),
       });
       setShowSavePresetModal(false);
       setNewPresetName('');
@@ -595,7 +600,7 @@ export const PrescriptionAgenticStudio: React.FC<PrescriptionAgenticStudioProps>
           >
             <div className="flex items-center justify-between px-4 mb-2">
               <div className="flex items-center gap-2">
-                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Protocoles Cliniques</span>
+                <span className="text-xs font-black text-slate-500 uppercase tracking-wide">Protocoles Cliniques</span>
                 <span className="w-1 h-1 rounded-full bg-slate-300" />
                 <span className="text-[8px] font-bold text-slate-300 uppercase italic">Smart Adaptation active</span>
               </div>
@@ -603,10 +608,10 @@ export const PrescriptionAgenticStudio: React.FC<PrescriptionAgenticStudioProps>
             </div>
             <div className="px-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Protocoles Système</span>
+                <span className="text-xs font-black text-slate-500 uppercase tracking-wide block">Protocoles Système</span>
                 <div className="relative">
                   <select
-                    className="w-full appearance-none bg-white border border-slate-200 rounded-2xl px-4 py-2.5 pr-8 text-[9px] font-black text-slate-600 uppercase tracking-widest cursor-pointer hover:border-primary/30 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors"
+                    className="w-full appearance-none bg-white border border-slate-200 rounded-2xl px-4 py-3 pr-8 text-sm font-bold text-slate-700 cursor-pointer hover:border-primary/30 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors"
                     value=""
                     onChange={e => {
                       const p = DEFAULT_MOROCCO_PRESETS.find(p => p.label === e.target.value);
@@ -624,11 +629,11 @@ export const PrescriptionAgenticStudio: React.FC<PrescriptionAgenticStudioProps>
               </div>
 
               <div className="space-y-1.5">
-                <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Mes Ordonnances</span>
+                <span className="text-xs font-black text-slate-500 uppercase tracking-wide block">Mes Ordonnances</span>
                 <div className="flex gap-2">
                   <div className="relative flex-1">
                     <select
-                      className="w-full appearance-none bg-white border border-slate-200 rounded-2xl px-4 py-2.5 pr-8 text-[9px] font-black text-slate-600 uppercase tracking-widest cursor-pointer hover:border-primary/30 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="w-full appearance-none bg-white border border-slate-200 rounded-2xl px-4 py-3 pr-8 text-sm font-bold text-slate-700 cursor-pointer hover:border-primary/30 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                       value={selectedUserPreset}
                       disabled={presets.length === 0}
                       onChange={e => {
@@ -647,11 +652,24 @@ export const PrescriptionAgenticStudio: React.FC<PrescriptionAgenticStudioProps>
                   {selectedUserPreset && (
                     <button
                       onClick={() => { deletePreset(selectedUserPreset); setSelectedUserPreset(''); }}
-                      className="w-9 h-9 flex-shrink-0 bg-red-50 border border-red-100 text-red-400 rounded-2xl flex items-center justify-center hover:bg-red-500 hover:text-white transition-all text-sm font-black"
-                    >×</button>
+                      className="min-w-[44px] min-h-[44px] flex-shrink-0 bg-red-50 border border-red-100 text-red-500 rounded-2xl flex items-center justify-center hover:bg-red-500 hover:text-white transition-all"
+                      title="Supprimer cette ordonnance enregistrée"
+                      aria-label="Supprimer cette ordonnance enregistrée"
+                    ><Trash2 size={18} /></button>
                   )}
                 </div>
               </div>
+            </div>
+            <div className="px-4 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowSavePresetModal(true)}
+                disabled={!drugs.some(d => d.name.trim())}
+                className="inline-flex min-h-[44px] items-center gap-2 rounded-2xl bg-primary px-5 py-3 text-sm font-bold text-white shadow-md transition-all hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-40"
+                style={{ backgroundColor: 'var(--primary)' }}
+              >
+                <Save size={17} /> Enregistrer dans Mes ordonnances
+              </button>
             </div>
           </motion.div>
         )}

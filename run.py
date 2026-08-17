@@ -109,6 +109,7 @@ import multiprocessing
 import threading
 import time
 import webbrowser
+import urllib.request
 from backend.main import app
 
 
@@ -130,17 +131,63 @@ def _resolve_host_port():
     return host, port
 
 
-def open_browser(port: int):
-    time.sleep(2)
-    webbrowser.open(f"http://127.0.0.1:{port}")
+def _resolve_tls_config():
+    """Retourne les fichiers TLS configurés, ou refuse une configuration partielle."""
+    cert_file = os.environ.get("CABINET_SSL_CERTFILE", "").strip()
+    key_file = os.environ.get("CABINET_SSL_KEYFILE", "").strip()
+    https_enabled = os.environ.get("CABINET_HTTPS_ENABLED", "false").lower() in {"1", "true", "yes"}
+    if not https_enabled:
+        return None, None
+    if not cert_file or not key_file:
+        raise RuntimeError("CABINET_HTTPS_ENABLED exige CABINET_SSL_CERTFILE et CABINET_SSL_KEYFILE.")
+    if not os.path.isfile(cert_file) or not os.path.isfile(key_file):
+        raise RuntimeError("Certificat ou clé TLS cabinet introuvable.")
+    return cert_file, key_file
+
+
+def _frontend_url(port: int, scheme: str = "http") -> str:
+    return f"{scheme}://127.0.0.1:{port}"
+
+
+def _server_is_ready(port: int, scheme: str = "http") -> bool:
+    """Vérifie le serveur local sans démarrer un second backend."""
+    try:
+        with urllib.request.urlopen(_frontend_url(port, scheme), timeout=0.8) as response:
+            return response.status < 500
+    except Exception:
+        return False
+
+
+def open_browser_when_ready(port: int, scheme: str = "http", timeout_seconds: float = 30.0):
+    """Ouvre l'interface seulement lorsque le backend sert réellement le frontend."""
+    deadline = time.monotonic() + timeout_seconds
+    while time.monotonic() < deadline:
+        if _server_is_ready(port, scheme):
+            webbrowser.open(_frontend_url(port, scheme))
+            return
+        time.sleep(0.25)
 
 
 if __name__ == '__main__':
     multiprocessing.freeze_support()
 
     host, port = _resolve_host_port()
+    ssl_certfile, ssl_keyfile = _resolve_tls_config()
+    scheme = "https" if ssl_certfile else "http"
 
     if getattr(sys, 'frozen', False):
-        threading.Thread(target=open_browser, args=(port,), daemon=True).start()
+        # Un clic sur le raccourci alors que Digital Crown tourne déjà doit
+        # simplement rouvrir l'interface, sans conflit de port ni terminal.
+        if _server_is_ready(port, scheme):
+            webbrowser.open(_frontend_url(port, scheme))
+            raise SystemExit(0)
+        threading.Thread(target=open_browser_when_ready, args=(port, scheme), daemon=True).start()
 
-    uvicorn.run(app, host=host, port=port, log_level="info")
+    uvicorn.run(
+        app,
+        host=host,
+        port=port,
+        log_level="info",
+        ssl_certfile=ssl_certfile,
+        ssl_keyfile=ssl_keyfile,
+    )

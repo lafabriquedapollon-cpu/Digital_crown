@@ -4,7 +4,7 @@ import { authService } from '../services/auth';
 import { Lock, Mail, AlertCircle, Loader2, User, RefreshCw, LogOut } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Logo from '../assets/logo.png';
-import { api, resetAuthState } from '../services/api';
+import { API_BASE, api, resetAuthState } from '../services/api';
 import { useAuthStore } from '../stores/useAuthStore';
 
 export const LoginPage: React.FC = () => {
@@ -76,10 +76,6 @@ export const LoginPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleGoogleLogin = () => {
-    authService.loginWithGoogle();
   };
 
   const handleRecheckLicense = async () => {
@@ -306,8 +302,8 @@ export const LoginPage: React.FC = () => {
                 </div>
               </div>
 
-              <button
-                onClick={handleGoogleLogin}
+              <a
+                href={`${API_BASE}/api/auth/google/authorize`}
                 className="w-full flex items-center justify-center gap-3 py-3 border border-slate-200 rounded-xl hover:bg-slate-50 transition-all font-medium text-slate-700"
               >
                 <svg className="w-5 h-5" viewBox="0 0 24 24">
@@ -317,7 +313,7 @@ export const LoginPage: React.FC = () => {
                   <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
                 </svg>
                 Google
-              </button>
+              </a>
             </div>
           )}
 
